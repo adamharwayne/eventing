@@ -101,7 +101,7 @@ func (r *RssAdapter) publish(feedURL string, item *gofeed.Item) error {
 	}
 	ctx := event.EventContext{
 		CloudEventsVersion: event.CloudEventsVersion,
-		EventType:	"rss.foobar",
+		EventType:	"dev.knative.rss.event",
 		EventID:	item.GUID,
 		EventTime:	itemTime,
 		Source:		feedURL,
