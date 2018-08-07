@@ -18,7 +18,6 @@ const (
 	envTarget = "TARGET"
 	envFeedURL = "FEED_URL"
 	envWatermarkTime = "WATERMARK_TIME"
-	timeLayout = "%Y-%m-%d %H:%M:%sz"
 )
 
 type RssAdapter struct {
@@ -32,7 +31,7 @@ func main() {
 
 	target := os.Getenv(envTarget)
 	feedURL := os.Getenv(envFeedURL)
-	watermark, err := time.Parse(timeLayout, os.Getenv(envWatermarkTime))
+	watermark, err := time.Parse(time.RFC3339, os.Getenv(envWatermarkTime))
 	if err != nil {
 		log.Fatalf("Error parsing the watermark time: %v :: %v", err, os.Getenv(envWatermarkTime))
 		return
@@ -42,25 +41,29 @@ func main() {
 	fp := gofeed.NewParser()
 	rssAdapter := RssAdapter{target: target, watermark: &watermark, feedParser: fp}
 
-	err = rssAdapter.parseAndPublish(feedURL)
+	newWatermark, err := rssAdapter.parseAndPublish(feedURL)
 	if err != nil {
 		log.Fatalf("Error parsing and publishing the feed: %v :: %v", feedURL, err)
 	}
 
-	err = updateWatermark()
+	err = updateWatermark(newWatermark)
 	if err != nil {
 		log.Fatalf("Error updating the watermark: %v", err)
 	}
 }
 
-func (r *RssAdapter) parseAndPublish(feedURL string) error {
+func (r *RssAdapter) parseAndPublish(feedURL string) (time.Time, error) {
 	feed, err := r.feedParser.ParseURL(feedURL)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 
+	var newWatermark time.Time
 	for _, item := range feed.Items {
-		if r.newerThanWatermark(item) {
+		if newerThanWatermark, itemTime := r.newerThanWatermark(item); newerThanWatermark {
+			if itemTime.After(newWatermark) {
+				newWatermark = itemTime
+			}
 			err := r.publish(feedURL, item)
 			if err != nil {
 				// Not publishing a single message is not fatal. However, only the last error will
@@ -70,16 +73,16 @@ func (r *RssAdapter) parseAndPublish(feedURL string) error {
 			}
 		}
 	}
-	return err
+	return newWatermark, err
 }
 
-func (r *RssAdapter) newerThanWatermark(item *gofeed.Item) bool {
+func (r *RssAdapter) newerThanWatermark(item *gofeed.Item) (bool, time.Time) {
 	itemTime, err := getItemTime(item)
 	if err != nil {
 		// If we can't determine when this item is from, just assume it is new.
-		return true
+		return true, time.Time{}
 	}
-	return r.watermark.Before(itemTime)
+	return r.watermark.Before(itemTime), itemTime
 }
 
 func getItemTime(item *gofeed.Item) (time.Time, error) {
@@ -125,6 +128,7 @@ func (r *RssAdapter) publish(feedURL string, item *gofeed.Item) error {
 	return nil
 }
 
-func updateWatermark() error {
+func updateWatermark(newWatermark time.Time) error {
+	_ = newWatermark.Format(time.RFC3339)
 	return errors.New("not yet implemented")
 }
