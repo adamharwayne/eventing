@@ -19,7 +19,7 @@ metadata:
   namespace: default
 spec:
   trigger:
-    eventType: dev.knative.slack.event
+    eventType: dev.knative.rss.event
     resource: gcloud # Fill this in with the name/nickname of your slack App.
     service: rss # Must match the eventsources.feeds.knative.dev's name.
     parameters:
