@@ -18,9 +18,10 @@ metadata:
   name: rss-flow
   namespace: default
 spec:
+  serviceAccountName: feed-sa
   trigger:
     eventType: dev.knative.rss.event
-    resource: gcloud # Fill this in with the name/nickname of your slack App.
+    resource: gcloud # Fill this in with the name/nickname of the RSS feed.
     service: rss # Must match the eventsources.feeds.knative.dev's name.
     parameters:
       rssURL: http://googlecloudplatform.blogspot.com/atom.xml

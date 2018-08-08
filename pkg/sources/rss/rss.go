@@ -45,11 +45,14 @@ type RSSEventSource struct {
 	image string
 	// namespace where the feed is created.
 	feedNamespace string
+	// serviceAccount that the container runs as. Launches Receive Adapter with the
+	// same Service Account.
+	feedServiceAccount string
 }
 
-func NewRSSEventSource(kubeclientset kubernetes.Interface, feedNamespace, image string) sources.EventSource {
+func NewRSSEventSource(kubeclientset kubernetes.Interface, feedNamespace, feedServiceAccount, image string) sources.EventSource {
 	glog.Infof("Creating RSS event source.")
-	return &RSSEventSource{kubeclientset: kubeclientset, feedNamespace: feedNamespace, image: image}
+	return &RSSEventSource{kubeclientset: kubeclientset, feedNamespace: feedNamespace, feedServiceAccount: feedServiceAccount, image: image}
 }
 
 func (r *RSSEventSource) StopFeed(trigger sources.EventTrigger, feedContext sources.FeedContext) error {
@@ -102,7 +105,7 @@ func (r *RSSEventSource) createReceiveAdapter(trigger sources.EventTrigger, targ
 		return cj, nil
 	}
 
-	cronJob := MakeCronJob(r.feedNamespace, cronJobName, r.image, target, trigger.Parameters[schedule].(string), trigger.Parameters[rssURL].(string))
+	cronJob := MakeCronJob(r.feedNamespace, cronJobName, r.feedServiceAccount, r.image, target, trigger.Parameters[schedule].(string), trigger.Parameters[rssURL].(string))
 	cj, createErr := cc.Create(cronJob)
 	if createErr != nil {
 		glog.Errorf("Cron Job creation failed: %s", createErr)
@@ -137,6 +140,7 @@ func main() {
 	decodedParameters, _ := base64.StdEncoding.DecodeString(os.Getenv(sources.EventSourceParametersKey))
 
 	feedNamespace := os.Getenv(sources.FeedNamespaceKey)
+	feedServiceAccount := os.Getenv(sources.FeedServiceAccountKey)
 
 	var p parameters
 	err := json.Unmarshal(decodedParameters, &p)
@@ -154,6 +158,6 @@ func main() {
 		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
 
-	sources.RunEventSource(NewRSSEventSource(kubeClient, feedNamespace, p.Image))
+	sources.RunEventSource(NewRSSEventSource(kubeClient, feedNamespace, feedServiceAccount, p.Image))
 	log.Printf("Done...")
 }

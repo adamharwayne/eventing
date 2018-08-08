@@ -20,10 +20,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func MakeCronJob(namespace, name, image, target, cronSchedule, rssURL string) *v1beta1.CronJob {
+func MakeCronJob(namespace, name, serviceAccount, image, target, cronSchedule, rssURL string) *v1beta1.CronJob {
 	labels := map[string]string{
 		"receive-adapter": "rss",
-		"rssURL":          rssURL,
 	}
 	return &v1beta1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -38,8 +37,10 @@ func MakeCronJob(namespace, name, image, target, cronSchedule, rssURL string) *v
 				Spec: v1.JobSpec{
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
+							ServiceAccountName: serviceAccount,
 							Containers: []corev1.Container{
 								{
+									Name: "rss-puller",
 									Image: image,
 									Env: []corev1.EnvVar{
 										{
@@ -47,12 +48,13 @@ func MakeCronJob(namespace, name, image, target, cronSchedule, rssURL string) *v
 											Value: target,
 										},
 										{
-											Name:  "RSS_URL",
+											Name:  "FEED_URL",
 											Value: rssURL,
 										},
 									},
 								},
 							},
+							RestartPolicy: corev1.RestartPolicyNever,
 						},
 					},
 				},

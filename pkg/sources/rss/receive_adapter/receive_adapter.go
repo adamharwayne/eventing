@@ -18,6 +18,7 @@ const (
 	envTarget = "TARGET"
 	envFeedURL = "FEED_URL"
 	envWatermarkTime = "WATERMARK_TIME"
+	unixEpoch = "1970-01-01T00:00:00Z"
 )
 
 type RssAdapter struct {
@@ -31,7 +32,13 @@ func main() {
 
 	target := os.Getenv(envTarget)
 	feedURL := os.Getenv(envFeedURL)
-	watermark, err := time.Parse(time.RFC3339, os.Getenv(envWatermarkTime))
+
+	envWatermark, watermarkPresent := os.LookupEnv(envWatermarkTime);
+	if !watermarkPresent {
+		envWatermark = unixEpoch
+	}
+
+	watermark, err := time.Parse(time.RFC3339, envWatermark)
 	if err != nil {
 		log.Fatalf("Error parsing the watermark time: %v :: %v", err, os.Getenv(envWatermarkTime))
 		return
