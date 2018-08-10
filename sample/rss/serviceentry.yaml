@@ -11,23 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-apiVersion: flows.knative.dev/v1alpha1
-kind: Flow
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
 metadata:
-  name: rss-flow
-  namespace: default
+  name: gcloud-blog-rss-receive-adapter-ext
 spec:
-  serviceAccountName: feed-sa
-  trigger:
-    eventType: dev.knative.rss.event
-    resource: gcloud # Fill this in with the name/nickname of the RSS feed.
-    service: rss # Must match the eventsources.feeds.knative.dev's name.
-    parameters:
-      rssURL: https://googlecloudplatform.blogspot.com/atom.xml
-      schedule: "*/1 * * * *"
-  action:
-    target:
-      kind: Route
-      apiVersion: serving.knative.dev/v1alpha1
-      name: message-dumper
+  hosts:
+  - "googlecloudplatform.blogspot.com"
+  ports:
+  - number: 443
+    protocol: HTTPS
+  location: MESH_EXTERNAL
