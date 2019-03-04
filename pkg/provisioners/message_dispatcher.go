@@ -40,6 +40,8 @@ type Dispatcher interface {
 	// the default namespace is used to expand it into a fully qualified name
 	// within the cluster.
 	DispatchMessage(message *Message, destination, reply string, defaults DispatchDefaults) error
+	DispatchMessageWithResponse(message *Message, destination, reply string, defaults DispatchDefaults) (*Message, error)
+	ToHTTPHeaders(headers map[string]string) http.Header
 }
 
 // MessageDispatcher is the 'real' Dispatcher used everywhere except unit tests.
@@ -78,6 +80,11 @@ func NewMessageDispatcher(logger *zap.SugaredLogger) *MessageDispatcher {
 // the default namespace is used to expand it into a fully qualified name
 // within the cluster.
 func (d *MessageDispatcher) DispatchMessage(message *Message, destination, reply string, defaults DispatchDefaults) error {
+	_, err := d.DispatchMessageWithResponse(message, destination, reply, defaults)
+	return err
+}
+
+func (d *MessageDispatcher) DispatchMessageWithResponse(message *Message, destination, reply string, defaults DispatchDefaults) (*Message, error) {
 	var err error
 	// Default to replying with the original message. If there is a destination, then replace it
 	// with the response from the call to the destination instead.
@@ -86,7 +93,7 @@ func (d *MessageDispatcher) DispatchMessage(message *Message, destination, reply
 		destinationURL := d.resolveURL(destination, defaults.Namespace)
 		response, err = d.executeRequest(destinationURL, message)
 		if err != nil {
-			return fmt.Errorf("Unable to complete request %v", err)
+			return nil, fmt.Errorf("Unable to complete request %v", err)
 		}
 	}
 
@@ -94,10 +101,10 @@ func (d *MessageDispatcher) DispatchMessage(message *Message, destination, reply
 		replyURL := d.resolveURL(reply, defaults.Namespace)
 		_, err = d.executeRequest(replyURL, response)
 		if err != nil {
-			return fmt.Errorf("Failed to forward reply %v", err)
+			return nil, fmt.Errorf("Failed to forward reply %v", err)
 		}
 	}
-	return nil
+	return response, nil
 }
 
 func (d *MessageDispatcher) executeRequest(url *url.URL, message *Message) (*Message, error) {
@@ -106,7 +113,7 @@ func (d *MessageDispatcher) executeRequest(url *url.URL, message *Message) (*Mes
 	if err != nil {
 		return nil, fmt.Errorf("unable to create request %v", err)
 	}
-	req.Header = d.toHTTPHeaders(message.Headers)
+	req.Header = d.ToHTTPHeaders(message.Headers)
 	res, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -122,6 +129,7 @@ func (d *MessageDispatcher) executeRequest(url *url.URL, message *Message) (*Mes
 		return nil, fmt.Errorf("unexpected HTTP response, expected 2xx, got %d", res.StatusCode)
 	}
 	headers := d.fromHTTPHeaders(res.Header)
+
 	// TODO: add configurable whitelisting of propagated headers/prefixes (configmap?)
 	if correlationID, ok := message.Headers[correlationIDHeaderName]; ok {
 		headers[correlationIDHeaderName] = correlationID
@@ -146,7 +154,7 @@ func isFailure(statusCode int) bool {
 // toHTTPHeaders converts message headers to HTTP headers.
 //
 // Only headers whitelisted as safe are copied.
-func (d *MessageDispatcher) toHTTPHeaders(headers map[string]string) http.Header {
+func (d *MessageDispatcher) ToHTTPHeaders(headers map[string]string) http.Header {
 	safe := http.Header{}
 
 	for name, value := range headers {

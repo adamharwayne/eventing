@@ -17,19 +17,10 @@
 package broker
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"net/http"
-	"net/url"
-	"reflect"
-
-	"github.com/cloudevents/sdk-go/pkg/cloudevents"
-
-	cehttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/provisioners"
@@ -37,10 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	defaultPort = 8080
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // Receiver parses Cloud Events, determines if they pass a filter, and sends them to a subscriber.
@@ -49,38 +37,31 @@ type Receiver struct {
 	client client.Client
 
 	port int
+	rcv  *provisioners.MessageReceiver
 
-	httpClient *http.Client
-	codec      cehttp.Codec
+	dispatcher provisioners.Dispatcher
 }
 
 // New creates a new Receiver and its associated MessageReceiver. The caller is responsible for
 // Start()ing the returned MessageReceiver.
 func New(logger *zap.Logger, client client.Client) *Receiver {
 	r := &Receiver{
-		logger: logger,
-		client: client,
-
-		port: defaultPort,
-
-		httpClient: &http.Client{},
-		codec: cehttp.Codec{
-			Encoding: cehttp.BinaryV01,
-		},
+		logger:     logger,
+		client:     client,
+		port:       8080,
+		rcv:        provisioners.NewMessageReceiver(nil, logger.Sugar()),
+		dispatcher: provisioners.NewMessageDispatcher(logger.Sugar()),
 	}
 	return r
 }
 
-var _ http.Handler = &Receiver{}
+var _ manager.Runnable = &Receiver{}
 
-// Start begins to receive messages for the receiver.
-//
-// Only HTTP POST requests to the root path (/) are accepted. If other paths or
-// methods are needed, use the HandleRequest method directly with another HTTP
-// server.
-//
-// This method will block until a message is received on the stop channel.
 func (r *Receiver) Start(stopCh <-chan struct{}) error {
+	err := r.initClient()
+	if err != nil {
+		return err
+	}
 	svr := r.start()
 	defer r.stop(svr)
 
@@ -123,18 +104,21 @@ func (r *Receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		r.logger.Error("Unable to parse host as a trigger", zap.Error(err), zap.String("host", req.Host))
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Bad Host"}`))
+		_, err = w.Write([]byte(`{"error":"Bad Host"}`))
+		if err != nil {
+			r.logger.Error("Error writing the message", zap.Error(err))
+		}
 		return
 	}
 
-	event, err := r.decodeHTTPRequest(req)
+	msg, err := r.rcv.FromRequest(req)
 	if err != nil {
 		r.logger.Error("Error decoding HTTP Request", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	responseEvent, err := r.sendEvent(triggerRef, event)
+	responseEvent, err := r.sendEvent(triggerRef, msg)
 	if err != nil {
 		r.logger.Error("Error sending the event", zap.Error(err))
 		w.WriteHeader(http.StatusBadRequest)
@@ -145,123 +129,53 @@ func (r *Receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encodedEvent, err := r.codec.Encode(*event)
-	if err != nil {
-		r.logger.Error("Error encoding the response event", zap.Error(err))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	msg, ok := encodedEvent.(*cehttp.Message)
-	if !ok {
-		r.logger.Error("Error casting the encoded response event", zap.Error(err), zap.Any("encodedEvent", reflect.TypeOf(encodedEvent)))
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	for n, v := range msg.Header {
+	r.logger.Debug("Received a responseEvent", zap.Any("responseEvent", responseEvent))
+
+	for n, vs := range r.dispatcher.ToHTTPHeaders(responseEvent.Headers) {
 		w.Header().Del(n)
-		for _, s := range v {
-			w.Header().Add(n, s)
+		for _, v := range vs {
+			w.Header().Add(n, v)
 		}
 	}
 	w.WriteHeader(http.StatusAccepted)
-	_, err = w.Write(msg.Body)
+	_, err = w.Write(msg.Payload)
 	if err != nil {
-		r.logger.Error("Error writing the response body", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
+		r.logger.Error("Error writing the response event", zap.Error(err))
 		return
 	}
 }
 
-func (r *Receiver) decodeHTTPRequest(req *http.Request) (*cloudevents.Event, error) {
-	return r.decodeHTTP(req.Header, req.Body)
-}
-
-func (r *Receiver) decodeHTTPResponse(resp *http.Response) (*cloudevents.Event, error) {
-	return r.decodeHTTP(resp.Header, resp.Body)
-}
-
-func (r *Receiver) decodeHTTP(headers http.Header, bodyReadCloser io.ReadCloser) (*cloudevents.Event, error) {
-	body, err := ioutil.ReadAll(bodyReadCloser)
-	if err != nil {
-		return nil, err
-	}
-	msg := &cehttp.Message{
-		Header: headers,
-		Body:   body,
-	}
-
-	return r.codec.Decode(msg)
-}
-
 // sendEvent sends an event to a subscriber if the trigger filter passes.
-func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, event *cloudevents.Event) (*cloudevents.Event, error) {
-	r.logger.Debug("Received message", zap.Any("triggerRef", trigger))
+func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, message *provisioners.Message) (*provisioners.Message, error) {
+	logger := r.logger.With(zap.Any("triggerRef", trigger))
+	logger.Debug("Received message")
 	ctx := context.Background()
 
 	t, err := r.getTrigger(ctx, trigger)
 	if err != nil {
-		r.logger.Info("Unable to get the Trigger", zap.Error(err), zap.Any("triggerRef", trigger))
+		logger.Info("Unable to get the Trigger", zap.Error(err))
 		return nil, err
 	}
 
-	subscriberURIString := t.Status.SubscriberURI
-	if subscriberURIString == "" {
+	subscriberURI := t.Status.SubscriberURI
+	if subscriberURI == "" {
 		r.logger.Error("Unable to read subscriberURI")
 		return nil, errors.New("unable to read subscriberURI")
 	}
-	subscriberURI, err := url.Parse(subscriberURIString)
-	if err != nil {
-		// sojemthing
-		return nil, err
-	}
 
-	if !r.shouldSendMessage(&t.Spec, event) {
-		r.logger.Debug("Message did not pass filter", zap.Any("triggerRef", trigger))
+	if !shouldSendMessage(logger, &t.Spec, message) {
+		logger.Debug("Message did not pass filter")
 		return nil, nil
 	}
 
-	return r.dispatch(event, subscriberURI)
-}
-
-func (r *Receiver) dispatch(event *cloudevents.Event, uri *url.URL) (*cloudevents.Event, error) {
-	encodedEvent, err := r.codec.Encode(*event)
+	response, err := r.dispatcher.DispatchMessageWithResponse(message, subscriberURI, "", provisioners.DispatchDefaults{})
 	if err != nil {
+		logger.Info("Failed to dispatch message", zap.Error(err))
 		return nil, err
 	}
-	msg, ok := encodedEvent.(*cehttp.Message)
-	if !ok {
-		return nil, errors.New("msg was not a cehttp.Message")
-	}
-
-	req, err := http.NewRequest(http.MethodPost, uri.String(), bytes.NewReader(msg.Body))
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header = msg.Header
-	res, err := r.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if res == nil {
-		// I don't think this is actually reachable with http.Client.Do(), but just to be sure we
-		// check anyway.
-		return nil, errors.New("non-error nil result from http.Client.Do()")
-	}
-
-	defer res.Body.Close()
-	if isFailure(res.StatusCode) {
-		// reject non-successful responses
-		return nil, fmt.Errorf("unexpected HTTP response, expected 2xx, got %d", res.StatusCode)
-	}
-
-	return r.decodeHTTPResponse(res)
-}
-
-// isFailure returns true if the status code is not a successful HTTP status.
-func isFailure(statusCode int) bool {
-	return statusCode < http.StatusOK /* 200 */ ||
-		statusCode >= http.StatusMultipleChoices /* 300 */
+	logger.Debug("Successfully sent message")
+	return response, nil
 }
 
 // Initialize the client. Mainly intended to load stuff in its cache.
@@ -300,22 +214,19 @@ func (r *Receiver) getTrigger(ctx context.Context, ref provisioners.ChannelRefer
 
 // shouldSendMessage determines whether message 'm' should be sent based on the triggerSpec 'ts'.
 // Currently it supports exact matching on type and/or source of events.
-func (r *Receiver) shouldSendMessage(ts *eventingv1alpha1.TriggerSpec, event *cloudevents.Event) bool {
+func shouldSendMessage(logger *zap.Logger, ts *eventingv1alpha1.TriggerSpec, m *provisioners.Message) bool {
 	if ts.Filter == nil || ts.Filter.SourceAndType == nil {
-		r.logger.Error("No filter specified")
+		logger.Error("No filter specified")
 		return false
 	}
 	filterType := ts.Filter.SourceAndType.Type
-	if filterType != eventingv1alpha1.TriggerAnyFilter && filterType != event.Type() {
-		r.logger.Debug("Wrong type", zap.String("trigger.spec.filter.sourceAndType.type", filterType), zap.String("event.Type()", event.Type()))
+	if filterType != eventingv1alpha1.TriggerAnyFilter && filterType != m.Headers["Ce-Eventtype"] {
+		logger.Debug("Wrong type", zap.String("trigger.spec.filter.sourceAndType.type", filterType), zap.String("message.type", m.Headers["Ce-Eventtype"]), zap.Any("headers", m.Headers))
 		return false
 	}
 	filterSource := ts.Filter.SourceAndType.Source
-	s := event.Context.AsV01().Source
-	actualSource := s.String()
-	//actualSource := event.Context.AsV01().Source.String()
-	if filterSource != eventingv1alpha1.TriggerAnyFilter && filterSource != actualSource {
-		r.logger.Debug("Wrong source", zap.String("trigger.spec.filter.sourceAndType.source", filterSource), zap.String("message.source", actualSource))
+	if filterSource != eventingv1alpha1.TriggerAnyFilter && filterSource != m.Headers["Ce-Source"] {
+		logger.Debug("Wrong source", zap.String("trigger.spec.filter.sourceAndType.source", filterSource), zap.String("message.source", m.Headers["Ce-Source"]))
 		return false
 	}
 	return true

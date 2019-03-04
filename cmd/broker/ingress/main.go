@@ -138,6 +138,10 @@ func (f *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // dispatch takes the request, and sends it out the f.destination. If the dispatched
 // request returns successfully, then return nil. Else, return an error.
 func (f *Handler) dispatch(msg *provisioners.Message) error {
+	if _, present := msg.Headers["Ce-Eventtype"]; !present {
+		f.logger.Debug("Received an event without an EventType, rejecting it.", zap.Any("msg", msg))
+		return nil
+	}
 	err := f.dispatcher.DispatchMessage(msg, f.destination, "", provisioners.DispatchDefaults{})
 	if err != nil {
 		f.logger.Error("Error dispatching message", zap.String("destination", f.destination))

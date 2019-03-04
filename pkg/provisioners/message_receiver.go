@@ -123,7 +123,7 @@ func (r *MessageReceiver) HandleRequest(res http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	message, err := r.fromRequest(req)
+	message, err := r.FromRequest(req)
 	if err != nil {
 		res.WriteHeader(http.StatusInternalServerError)
 		return
@@ -144,7 +144,7 @@ func (r *MessageReceiver) HandleRequest(res http.ResponseWriter, req *http.Reque
 	res.WriteHeader(http.StatusAccepted)
 }
 
-func (r *MessageReceiver) fromRequest(req *http.Request) (*Message, error) {
+func (r *MessageReceiver) FromRequest(req *http.Request) (*Message, error) {
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		return nil, err
