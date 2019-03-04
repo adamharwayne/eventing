@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"reflect"
 	"sync"
 	"testing"
@@ -699,16 +700,21 @@ type fakeDispatcher struct {
 	errCounter int
 }
 
-func (d *fakeDispatcher) DispatchMessage(_ *provisioners.Message, _, _ string, _ provisioners.DispatchDefaults) error {
+func (d *fakeDispatcher) DispatchMessage(_ *provisioners.Message, _, _ string, _ provisioners.DispatchDefaults) (*provisioners.Message, error) {
 	if !d.ack {
-		return d.err
+		return nil, d.err
 	}
 	// Decrease the errCounter to simulate a final ack after many nacks.
 	d.errCounter--
 	if d.errCounter > 0 {
-		return d.err
+		return nil, d.err
 	}
-	return nil
+	return nil, nil
+}
+
+func (d *fakeDispatcher) ToHTTPHeaders(headers map[string]string) http.Header {
+	r := &provisioners.MessageDispatcher{}
+	return r.ToHTTPHeaders(headers)
 }
 
 type fakeWaiter struct {

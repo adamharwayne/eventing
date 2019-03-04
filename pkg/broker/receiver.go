@@ -169,7 +169,7 @@ func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, message *pro
 		return nil, nil
 	}
 
-	response, err := r.dispatcher.DispatchMessageWithResponse(message, subscriberURI, "", provisioners.DispatchDefaults{})
+	response, err := r.dispatcher.DispatchMessage(message, subscriberURI, "", provisioners.DispatchDefaults{})
 	if err != nil {
 		logger.Info("Failed to dispatch message", zap.Error(err))
 		return nil, err

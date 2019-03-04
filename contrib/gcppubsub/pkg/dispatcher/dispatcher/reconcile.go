@@ -336,7 +336,7 @@ func receiveFunc(logger *zap.SugaredLogger, sub pubsubutil.GcpPubSubSubscription
 			Headers: msg.Attributes(),
 			Payload: msg.Data(),
 		}
-		err := dispatcher.DispatchMessage(message, sub.SubscriberURI, sub.ReplyURI, defaults)
+		_, err := dispatcher.DispatchMessage(message, sub.SubscriberURI, sub.ReplyURI, defaults)
 		if err != nil {
 			// Compute the wait time to nack this message.
 			// As soon as we nack a message, the GcpPubSub channel will attempt the retry.

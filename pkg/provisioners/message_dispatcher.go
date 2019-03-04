@@ -39,8 +39,7 @@ type Dispatcher interface {
 	// The destination and reply are DNS names. For names with a single label,
 	// the default namespace is used to expand it into a fully qualified name
 	// within the cluster.
-	DispatchMessage(message *Message, destination, reply string, defaults DispatchDefaults) error
-	DispatchMessageWithResponse(message *Message, destination, reply string, defaults DispatchDefaults) (*Message, error)
+	DispatchMessage(message *Message, destination, reply string, defaults DispatchDefaults) (*Message, error)
 	ToHTTPHeaders(headers map[string]string) http.Header
 }
 
@@ -79,12 +78,7 @@ func NewMessageDispatcher(logger *zap.SugaredLogger) *MessageDispatcher {
 // The destination and reply are DNS names. For names with a single label,
 // the default namespace is used to expand it into a fully qualified name
 // within the cluster.
-func (d *MessageDispatcher) DispatchMessage(message *Message, destination, reply string, defaults DispatchDefaults) error {
-	_, err := d.DispatchMessageWithResponse(message, destination, reply, defaults)
-	return err
-}
-
-func (d *MessageDispatcher) DispatchMessageWithResponse(message *Message, destination, reply string, defaults DispatchDefaults) (*Message, error) {
+func (d *MessageDispatcher) DispatchMessage(message *Message, destination, reply string, defaults DispatchDefaults) (*Message, error) {
 	var err error
 	// Default to replying with the original message. If there is a destination, then replace it
 	// with the response from the call to the destination instead.

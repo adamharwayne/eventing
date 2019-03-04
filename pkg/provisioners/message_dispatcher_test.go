@@ -276,7 +276,7 @@ func TestDispatchMessage(t *testing.T) {
 			defer replyServer.Close()
 
 			md := NewMessageDispatcher(zap.NewNop().Sugar())
-			err := md.DispatchMessage(tc.message,
+			_, err := md.DispatchMessage(tc.message,
 				getDomain(t, tc.sendToDestination, destServer.URL),
 				getDomain(t, tc.sendToReply, replyServer.URL),
 				DispatchDefaults{})

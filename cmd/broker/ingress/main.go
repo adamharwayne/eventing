@@ -142,7 +142,7 @@ func (f *Handler) dispatch(msg *provisioners.Message) error {
 		f.logger.Debug("Received an event without an EventType, rejecting it.", zap.Any("msg", msg))
 		return nil
 	}
-	err := f.dispatcher.DispatchMessage(msg, f.destination, "", provisioners.DispatchDefaults{})
+	_, err := f.dispatcher.DispatchMessage(msg, f.destination, "", provisioners.DispatchDefaults{})
 	if err != nil {
 		f.logger.Error("Error dispatching message", zap.String("destination", f.destination))
 	}

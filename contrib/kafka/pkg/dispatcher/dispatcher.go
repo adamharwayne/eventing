@@ -213,7 +213,8 @@ func (d *KafkaDispatcher) unsubscribe(channel provisioners.ChannelReference, sub
 // dispatchMessage sends the request to exactly one subscription. It handles both the `call` and
 // the `sink` portions of the subscription.
 func (d *KafkaDispatcher) dispatchMessage(m *provisioners.Message, sub subscription) error {
-	return d.dispatcher.DispatchMessage(m, sub.SubscriberURI, sub.ReplyURI, provisioners.DispatchDefaults{})
+	_, err := d.dispatcher.DispatchMessage(m, sub.SubscriberURI, sub.ReplyURI, provisioners.DispatchDefaults{})
+	return err
 }
 
 func (d *KafkaDispatcher) getConfig() *multichannelfanout.Config {

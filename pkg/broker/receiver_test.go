@@ -106,7 +106,7 @@ func TestReceiver(t *testing.T) {
 	}
 	for n, tc := range testCases {
 		t.Run(n, func(t *testing.T) {
-			mr, _ := New(
+			mr := New(
 				zap.NewNop(),
 				fake.NewFakeClient(tc.initialState...))
 			fd := &fakeDispatcher{
@@ -115,7 +115,7 @@ func TestReceiver(t *testing.T) {
 			mr.dispatcher = fd
 
 			resp := httptest.NewRecorder()
-			mr.newMessageReceiver().HandleRequest(resp, makeRequest())
+			mr.ServeHTTP(resp, makeRequest())
 			if tc.expectedErr {
 				if resp.Result().StatusCode >= 200 && resp.Result().StatusCode < 300 {
 					t.Errorf("Expected an error. Actual: %v", resp.Result())
@@ -135,11 +135,17 @@ func TestReceiver(t *testing.T) {
 type fakeDispatcher struct {
 	err             error
 	requestReceived bool
+	responseEvent   *provisioners.Message
 }
 
-func (d *fakeDispatcher) DispatchMessage(_ *provisioners.Message, _, _ string, _ provisioners.DispatchDefaults) error {
+func (d *fakeDispatcher) DispatchMessage(_ *provisioners.Message, _, _ string, _ provisioners.DispatchDefaults) (*provisioners.Message, error) {
 	d.requestReceived = true
-	return d.err
+	return d.responseEvent, d.err
+}
+
+func (d *fakeDispatcher) ToHTTPHeaders(headers map[string]string) http.Header {
+	r := &provisioners.MessageDispatcher{}
+	return r.ToHTTPHeaders(headers)
 }
 
 func makeTrigger(t, s string) *eventingv1alpha1.Trigger {

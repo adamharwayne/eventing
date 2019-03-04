@@ -236,7 +236,7 @@ func (s *SubscriptionsSupervisor) subscribe(channel provisioners.ChannelReferenc
 			s.logger.Error("Failed to unmarshal message: ", zap.Error(err))
 			return
 		}
-		if err := s.dispatcher.DispatchMessage(&message, subscription.SubscriberURI, subscription.ReplyURI, provisioners.DispatchDefaults{Namespace: subscription.Namespace}); err != nil {
+		if _, err := s.dispatcher.DispatchMessage(&message, subscription.SubscriberURI, subscription.ReplyURI, provisioners.DispatchDefaults{Namespace: subscription.Namespace}); err != nil {
 			s.logger.Error("Failed to dispatch message: ", zap.Error(err))
 			return
 		}

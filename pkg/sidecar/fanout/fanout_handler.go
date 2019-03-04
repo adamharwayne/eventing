@@ -130,5 +130,6 @@ func (f *Handler) dispatch(msg *provisioners.Message) error {
 // makeFanoutRequest sends the request to exactly one subscription. It handles both the `call` and
 // the `sink` portions of the subscription.
 func (f *Handler) makeFanoutRequest(m provisioners.Message, sub eventingduck.ChannelSubscriberSpec) error {
-	return f.dispatcher.DispatchMessage(&m, sub.SubscriberURI, sub.ReplyURI, provisioners.DispatchDefaults{})
+	_, err := f.dispatcher.DispatchMessage(&m, sub.SubscriberURI, sub.ReplyURI, provisioners.DispatchDefaults{})
+	return err
 }
