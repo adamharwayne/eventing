@@ -176,28 +176,33 @@ type runnableServer struct {
 	logger *zap.Logger
 	s      *http.Server
 	// ShutdownTimeout is the duration to wait for the http.Server to gracefully
-	// shut down when the stop channel is closed. If this is zero, no shutdown
-	// action will be taken.
+	// shut down when the stop channel is closed. If this is zero or negative,
+	// shutdown will never time out.
+	// TODO alternative: zero shuts down immediately, negative means infinite
 	ShutdownTimeout time.Duration
 }
 
 func (r *runnableServer) Start(stopCh <-chan struct{}) error {
 	logger := r.logger.With(zap.String("address", r.s.Addr))
 	logger.Info("Listening...")
-	if r.ShutdownTimeout > 0 {
-		go func() {
-			select {
-			case <-stopCh:
-				ctx, cancel := context.WithTimeout(context.Background(), r.ShutdownTimeout)
+	go func() {
+		select {
+		case <-stopCh:
+			var ctx context.Context
+			var cancel context.CancelFunc
+			if r.ShutdownTimeout > 0 {
+				ctx, cancel = context.WithTimeout(context.Background(), r.ShutdownTimeout)
 				defer cancel()
-				logger.Info("Shutting down...")
-				if err := r.s.Shutdown(ctx); err != nil {
-					logger.Error("Shutdown returned an error", zap.Error(err))
-				} else {
-					logger.Info("Shutdown done")
-				}
+			} else {
+				ctx = context.Background()
 			}
-		}()
-	}
+			logger.Info("Shutting down...")
+			if err := r.s.Shutdown(ctx); err != nil {
+				logger.Error("Shutdown returned an error", zap.Error(err))
+			} else {
+				logger.Info("Shutdown done")
+			}
+		}
+	}()
 	return r.s.ListenAndServe()
 }
