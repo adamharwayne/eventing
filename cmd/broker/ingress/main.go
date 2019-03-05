@@ -23,14 +23,22 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
+	"go.uber.org/zap/zapcore"
+
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
+	"github.com/knative/eventing/pkg/broker"
 	"github.com/knative/eventing/pkg/provisioners"
 	"github.com/knative/pkg/signals"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+)
+
+const (
+	defaultTTL = 10
 )
 
 var (
@@ -42,6 +50,7 @@ var (
 
 func main() {
 	logConfig := provisioners.NewLoggingConfig()
+	logConfig.LoggingLevel["provisioner"] = zapcore.DebugLevel
 	logger := provisioners.NewProvisionerLoggerFromConfig(logConfig).Desugar()
 	defer logger.Sync()
 	flag.Parse()
@@ -131,18 +140,48 @@ func createReceiverFunction(f *Handler) func(provisioners.ChannelReference, *pro
 }
 
 // http.Handler interface.
-func (f *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	f.receiver.HandleRequest(w, r)
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.receiver.HandleRequest(w, r)
 }
 
 // dispatch takes the request, and sends it out the f.destination. If the dispatched
 // request returns successfully, then return nil. Else, return an error.
-func (f *Handler) dispatch(msg *provisioners.Message) error {
-	err := f.dispatcher.DispatchMessage(msg, f.destination, "", provisioners.DispatchDefaults{})
+func (h *Handler) dispatch(msg *provisioners.Message) error {
+	msg = h.decrementTTL(msg)
+	if msg == nil {
+		return nil
+	}
+
+	err := h.dispatcher.DispatchMessage(msg, h.destination, "", provisioners.DispatchDefaults{})
 	if err != nil {
-		f.logger.Error("Error dispatching message", zap.String("destination", f.destination))
+		h.logger.Error("Error dispatching message", zap.String("destination", h.destination))
 	}
 	return err
+}
+
+func (h *Handler) decrementTTL(msg *provisioners.Message) *provisioners.Message {
+	ttlString, present := msg.Headers[broker.V01TTLHeader]
+	if !present {
+		h.logger.Debug("No TTL found, defaulting to 10", zap.Any("msg", msg))
+		msg.Headers[broker.V01TTLHeader] = strconv.FormatInt(defaultTTL, 10)
+		return msg
+	}
+	ttl, err := strconv.Atoi(ttlString)
+	if err != nil {
+		// Treat a parsing failure as if it isn't present.
+		h.logger.Debug("TTL parse failure", zap.String("ttlString", ttlString), zap.Error(err))
+		msg.Headers[broker.V01TTLHeader] = strconv.FormatInt(defaultTTL, 10)
+		return msg
+	}
+	newTTL := ttl - 1
+	if newTTL <= 0 {
+		// TODO send to some form of dead letter queue rather than dropping.
+		h.logger.Error("Dropping message due to TTL", zap.Any("msg", msg))
+		return nil
+	}
+	msg.Headers[broker.V01TTLHeader] = strconv.Itoa(newTTL)
+	h.logger.Debug("Returning message with decremented TTL", zap.Any("msg", msg), zap.Int("newTTL", newTTL))
+	return msg
 }
 
 // runnableServer is a small wrapper around http.Server so that it matches the manager.Runnable

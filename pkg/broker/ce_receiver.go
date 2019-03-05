@@ -129,7 +129,8 @@ func (r *Receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		r.logger.Error("Unable to parse host as a trigger", zap.Error(err), zap.String("host", req.Host))
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(`{"error":"Bad Host"}`))
+		// Ignore the error.
+		_, _ = w.Write([]byte(`{"error":"Bad Host"}`))
 		return
 	}
 
@@ -151,7 +152,7 @@ func (r *Receiver) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	encodedEvent, err := r.codec.Encode(*event)
+	encodedEvent, err := r.codec.Encode(*responseEvent)
 	if err != nil {
 		r.logger.Error("Error encoding the response event", zap.Error(err))
 		w.WriteHeader(http.StatusInternalServerError)
@@ -229,7 +230,32 @@ func (r *Receiver) sendEvent(trigger provisioners.ChannelReference, event *cloud
 		return nil, nil
 	}
 
-	return r.dispatch(event, subscriberURI)
+	if _, present := event.Context.AsV02().Extensions[V02TTLAttribute]; !present {
+		r.logger.Info("No TTL seen, dropping", zap.Any("v1", event.Context.AsV01()), zap.Any("v2", event.Context.AsV02()), zap.Any("v2.extensions", event.Context.AsV02().Extensions))
+		return nil, nil
+	}
+	// Remove the TTL attribute before the subscriber sees the event.
+	originalV2 := event.Context.AsV02()
+	ttl := originalV2.Extensions[V02TTLAttribute]
+	delete(originalV2.Extensions, V02TTLAttribute)
+	event.Context = originalV2
+
+	responseEvent, err := r.dispatch(event, subscriberURI)
+	if err != nil {
+		return nil, err
+	}
+	if responseEvent == nil {
+		return nil, nil
+	}
+
+	v2 := responseEvent.Context.AsV02()
+	if v2.Extensions == nil {
+		v2.Extensions = make(map[string]interface{})
+	}
+	v2.Extensions[V02TTLAttribute] = ttl
+	responseEvent.Context = v2
+
+	return responseEvent, nil
 }
 
 func (r *Receiver) dispatch(event *cloudevents.Event, uri *url.URL) (*cloudevents.Event, error) {
@@ -322,7 +348,6 @@ func (r *Receiver) shouldSendMessage(ts *eventingv1alpha1.TriggerSpec, event *cl
 	filterSource := ts.Filter.SourceAndType.Source
 	s := event.Context.AsV01().Source
 	actualSource := s.String()
-	//actualSource := event.Context.AsV01().Source.String()
 	if filterSource != eventingv1alpha1.TriggerAnyFilter && filterSource != actualSource {
 		r.logger.Debug("Wrong source", zap.String("trigger.spec.filter.sourceAndType.source", filterSource), zap.String("message.source", actualSource))
 		return false
