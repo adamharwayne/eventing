@@ -54,6 +54,8 @@ type reconciler struct {
 	client   client.Client
 	recorder record.EventRecorder
 	logger   *zap.Logger
+
+	configMapKey client.ObjectKey
 }
 
 // Verify the struct implements reconcile.Reconciler
@@ -175,6 +177,12 @@ func (r *reconciler) reconcile(ctx context.Context, ccp *eventingv1alpha1.Cluste
 		return err
 	}
 
+	_, err = r.ensureConfigMapExists(ctx)
+	if err != nil {
+		logger.Info("Error ensuring ConfigMap exists", zap.Error(err))
+		return err
+	}
+
 	ccp.Status.MarkReady()
 	return nil
 }
@@ -195,4 +203,29 @@ func (r *reconciler) deleteOldDispatcherService(ctx context.Context, ccp *eventi
 	}
 
 	return r.client.Delete(ctx, svc)
+}
+
+func (r *reconciler) ensureConfigMapExists(ctx context.Context) (*corev1.ConfigMap, error) {
+	logger := r.logger.With(zap.Any("configMap", r.configMapKey))
+
+	cm := &corev1.ConfigMap{}
+	err := r.client.Get(ctx, r.configMapKey, cm)
+	if errors.IsNotFound(err) {
+		cm = &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: r.configMapKey.Namespace,
+				Name:      r.configMapKey.Name,
+			},
+		}
+		err = r.client.Create(ctx, cm)
+		if err != nil {
+			logger.Info("Unable to create ConfigMap", zap.Error(err))
+			return nil, err
+		}
+		return cm, nil
+	} else if err != nil {
+		logger.Info("Unable to get ConfigMap", zap.Error(err))
+		return nil, err
+	}
+	return cm, nil
 }

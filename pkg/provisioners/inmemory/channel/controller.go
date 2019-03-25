@@ -41,7 +41,9 @@ const (
 )
 
 var (
-	defaultConfigMapKey = types.NamespacedName{
+	// ConfigMapKey is the ConfigMap that contains the subscription information for all in-memory
+	// Channels.
+	ConfigMapKey = types.NamespacedName{
 		Namespace: system.Namespace(),
 		Name:      ConfigMapName,
 	}
@@ -52,7 +54,7 @@ func ProvideController(mgr manager.Manager, logger *zap.Logger) (controller.Cont
 	// Setup a new controller to Reconcile Channels that belong to this Cluster Provisioner
 	// (in-memory channels).
 	r := &reconciler{
-		configMapKey: defaultConfigMapKey,
+		configMapKey: ConfigMapKey,
 		recorder:     mgr.GetRecorder(controllerAgentName),
 		logger:       logger,
 	}

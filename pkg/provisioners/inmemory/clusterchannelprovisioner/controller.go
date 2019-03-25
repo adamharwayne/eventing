@@ -18,6 +18,7 @@ package clusterchannelprovisioner
 
 import (
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
+	"github.com/knative/eventing/pkg/provisioners/inmemory/channel"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -38,8 +39,9 @@ func ProvideController(mgr manager.Manager, logger *zap.Logger) (controller.Cont
 
 	// Setup a new controller to Reconcile ClusterChannelProvisioners that are in-memory channels.
 	r := &reconciler{
-		recorder: mgr.GetRecorder(controllerAgentName),
-		logger:   logger,
+		recorder:     mgr.GetRecorder(controllerAgentName),
+		logger:       logger,
+		configMapKey: channel.ConfigMapKey,
 	}
 	c, err := controller.New(controllerAgentName, mgr, controller.Options{
 		Reconciler: r,
