@@ -18,6 +18,7 @@ package configmap
 
 import (
 	"sync"
+	"github.com/golang/glog"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -56,6 +57,7 @@ func (w *ManualWatcher) OnChange(configMap *corev1.ConfigMap) {
 	if configMap.Namespace != w.Namespace {
 		return
 	}
+	glog.Info("Entering manualWatcher.OnChange")
 	// Within our namespace, take the lock and see if there are any registered observers.
 	w.m.Lock()
 	defer w.m.Unlock()
@@ -68,4 +70,5 @@ func (w *ManualWatcher) OnChange(configMap *corev1.ConfigMap) {
 	for _, o := range observers {
 		o(configMap)
 	}
+	glog.Info("Returning from manualWatcher.OnChange")
 }

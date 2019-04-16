@@ -43,6 +43,7 @@ func NewWatcher(logger *zap.Logger, kc kubernetes.Interface, cmNamespace, cmName
 			logger.Error("Unable to update config", zap.Error(err))
 			return
 		}
+		logger.Info("Returning from configmap.NewWatcher's inner func")
 	})
 
 	return iw, nil

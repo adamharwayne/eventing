@@ -35,7 +35,6 @@ const (
 func NewFanoutConfig(logger *zap.Logger, data map[string]string) (*multichannelfanout.Config, error) {
 	str, present := data[MultiChannelFanoutConfigKey]
 	if !present {
-		logger.Error("Expected key not found", zap.String("key", MultiChannelFanoutConfigKey))
 		return nil, fmt.Errorf("expected key not found: %v", MultiChannelFanoutConfigKey)
 	}
 	return multichannelfanout.Parse(logger, str)

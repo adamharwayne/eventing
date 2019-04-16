@@ -18,6 +18,7 @@ package configmap
 
 import (
 	"errors"
+	"github.com/golang/glog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -116,11 +117,15 @@ func (i *InformedWatcher) checkObservedResourcesExist() error {
 }
 
 func (i *InformedWatcher) addConfigMapEvent(obj interface{}) {
+	glog.Info("Entering pkg's addConfigMapEvent")
 	configMap := obj.(*corev1.ConfigMap)
 	i.OnChange(configMap)
+	glog.Info("Returning from pkg's addConfigMapEvent")
 }
 
-func (i *InformedWatcher) updateConfigMapEvent(old, new interface{}) {
+func (i *InformedWatcher) updateConfigMapEvent(_, new interface{}) {
+	glog.Info("Entering pkg's updateConfigMapEvent")
 	configMap := new.(*corev1.ConfigMap)
 	i.OnChange(configMap)
+	glog.Info("Returning from pkg's updateConfigMapEvent")
 }
