@@ -110,6 +110,7 @@ func (r *reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 		logging.FromContext(ctx).Info("Not reconciling Channel, it is not controlled by this Controller", zap.Any("ref", c.Spec))
 		return reconcile.Result{}, nil
 	}
+
 	pcs, err := pubsubutil.GetInternalStatus(c)
 	if err != nil {
 		logging.FromContext(ctx).Info("Unable to read the status.internal", zap.Error(err))
@@ -167,6 +168,13 @@ func (r *reconciler) reconcile(ctx context.Context, c *eventingv1alpha1.Channel,
 		// We use a finalizer to ensure we stop listening on the GCP PubSub Subscriptions.
 		r.stopAllSubscriptions(ctx, channelKey)
 		util.RemoveFinalizer(c, finalizerName)
+		return false, nil
+	}
+
+	// The plan is recorded before the resources are created, don't try to interact with this Channel if it is not yet
+	// ready.
+	if !c.Status.IsReady() {
+		logging.FromContext(ctx).Info("Not reconciling Channel, it is not yet ready")
 		return false, nil
 	}
 
