@@ -73,6 +73,8 @@ type Transport struct {
 	crMu sync.Mutex
 	// Receive Mutex
 	reMu sync.Mutex
+	
+	middleware []Middleware
 }
 
 func New(opts ...Option) (*Transport, error) {
@@ -231,9 +233,10 @@ func (t *Transport) StartReceiver(ctx context.Context) error {
 	}
 
 	addr := fmt.Sprintf(":%d", t.GetPort())
+	h := getHandler(t)
 	t.server = &http.Server{
 		Addr:    addr,
-		Handler: t.Handler,
+		Handler: h,
 	}
 
 	listener, err := net.Listen("tcp", addr)
@@ -268,6 +271,17 @@ func (t *Transport) StartReceiver(ctx context.Context) error {
 	case err := <-errChan:
 		return err
 	}
+}
+
+func getHandler(t *Transport) http.Handler {
+	if len(t.middleware) == 0 {
+		return t.Handler
+	}
+	var h http.Handler = t.Handler
+	for _, m := range t.middleware {
+		h = m(h)
+	}
+	return h
 }
 
 type eventError struct {

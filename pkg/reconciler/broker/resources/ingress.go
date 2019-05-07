@@ -78,6 +78,14 @@ func MakeIngress(args *IngressArgs) *appsv1.Deployment {
 									Name:  "BROKER",
 									Value: args.Broker.Name,
 								},
+								{
+									Name: "NAMESPACE",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "metadata.namespace",
+										},
+									},
+								},
 							},
 							Ports: []corev1.ContainerPort{
 								{

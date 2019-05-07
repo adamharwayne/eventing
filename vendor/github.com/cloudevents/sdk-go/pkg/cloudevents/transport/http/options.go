@@ -173,3 +173,15 @@ func WithPath(path string) Option {
 		return nil
 	}
 }
+
+type Middleware func(next nethttp.Handler) nethttp.Handler
+
+func WithMiddleware(middleware Middleware) Option {
+	return func (t *Transport) error {
+		if t == nil {
+			return fmt.Errorf("http middleware option can not set nil transport")
+		}
+		t.middleware = append(t.middleware, middleware)
+		return nil
+	}
+}
