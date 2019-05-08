@@ -28,6 +28,7 @@ import (
 	"github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/channelwatcher"
 	"github.com/knative/eventing/pkg/provisioners/swappable"
+	"github.com/knative/eventing/pkg/tracing"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -68,9 +69,13 @@ func main() {
 		logger.Fatal("Unable to create channel watcher.", zap.Error(err))
 	}
 
+	if err = tracing.SetupZipkinPublishing("in-memory-dispatcher"); err != nil {
+		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
+	}
+
 	s := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      sh,
+		Handler:      tracing.HTTPSpanMiddleware(sh),
 		ErrorLog:     zap.NewStdLog(logger),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
