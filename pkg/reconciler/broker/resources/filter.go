@@ -73,6 +73,10 @@ func MakeFilterDeployment(args *FilterArgs) *appsv1.Deployment {
 										},
 									},
 								},
+								{
+									Name:  "ZIPKIN_SERVICE_NAME",
+									Value: fmt.Sprintf("%s-broker-filter.%s", args.Broker.Name, args.Broker.Namespace),
+								},
 							},
 						},
 					},

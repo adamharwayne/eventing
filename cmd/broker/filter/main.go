@@ -24,6 +24,7 @@ import (
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/broker"
 	"github.com/knative/eventing/pkg/provisioners"
+	"github.com/knative/eventing/pkg/tracing"
 	"github.com/knative/pkg/signals"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -54,6 +55,10 @@ func main() {
 
 	if err = eventingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		logger.Fatal("Unable to add eventingv1alpha1 scheme", zap.Error(err))
+	}
+
+	if err = tracing.SetupZipkinPublishing(getRequiredEnv("ZIPKIN_SERVICE_NAME")); err != nil {
+		logger.Fatal("Error setting up Zipkin tracing", zap.Error(err))
 	}
 
 	// We are running both the receiver (takes messages in from the Broker) and the dispatcher (send

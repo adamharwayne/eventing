@@ -35,10 +35,8 @@ import (
 	"github.com/knative/eventing/pkg/broker"
 	"github.com/knative/eventing/pkg/provisioners"
 	"github.com/knative/eventing/pkg/tracing"
-	tracingconfig "github.com/knative/eventing/pkg/tracing/config"
 	"github.com/knative/eventing/pkg/utils"
 	"github.com/knative/pkg/signals"
-	"github.com/openzipkin/zipkin-go"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -132,23 +130,8 @@ func main() {
 		logger.Fatal("Unable to add metrics runnableServer", zap.Error(err))
 	}
 
-	// Zipkin Tracing. This only works if the HTTP server has the tracing.HTTPSpanMiddleware
-	// installed.
-	zipkinEndpoint, err := zipkin.NewEndpoint(getRequiredEnv("ZIPKIN_SERVICE_NAME"), "")
-	if err != nil {
-		logger.Fatal("Unable to create tracing endpoint", zap.Error(err))
-	}
-	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint))
-	// TODO: Read this from a ConfigMap, rather than hard coding it. Watch the ConfigMap for dynamic
-	// updating.
-	err = oct.ApplyConfig(&tracingconfig.Config{
-		Enable:         true,
-		Debug:          true,
-		SampleRate:     1,
-		ZipkinEndpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
-	})
-	if err != nil {
-		logger.Fatal("Unable to set OpenCensusTracer config", zap.Error(err))
+	if err = tracing.SetupZipkinPublishing(getRequiredEnv("ZIPKIN_SERVICE_NAME")); err != nil {
+		logger.Fatal("Error setting up Zipkin tracing", zap.Error(err))
 	}
 
 	// Set up signals so we handle the first shutdown signal gracefully.
