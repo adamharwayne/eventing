@@ -72,6 +72,7 @@ roleRef:
   name: natss-controller
   apiGroup: rbac.authorization.k8s.io
 
+
 ---
 
 apiVersion: apps/v1
@@ -144,6 +145,39 @@ subjects:
     namespace: knative-eventing
 roleRef:
   kind: ClusterRole
+  name: natss-dispatcher
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: natss-dispatcher
+  namespace: knative-eventing
+rules:
+  - apiGroups:
+      - "" # Core API group.
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: natss-channel-dispatcher
+  namespace: knative-eventing
+subjects:
+  - kind: ServiceAccount
+    name: natss-dispatcher
+    namespace: knative-eventing
+roleRef:
+  kind: Role
   name: natss-dispatcher
   apiGroup: rbac.authorization.k8s.io
 
