@@ -29,11 +29,6 @@ import (
 	"sync"
 	"time"
 
-	activatorconfig "github.com/knative/eventing/pkg/activator/config"
-	"k8s.io/client-go/kubernetes"
-
-	"github.com/knative/pkg/configmap"
-
 	http2 "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 
 	"github.com/knative/eventing/pkg/tracing"
@@ -45,7 +40,7 @@ import (
 	"github.com/knative/eventing/pkg/provisioners"
 	"github.com/knative/eventing/pkg/utils"
 	"github.com/knative/pkg/signals"
-	zipkin "github.com/openzipkin/zipkin-go"
+	"github.com/openzipkin/zipkin-go"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -140,41 +135,20 @@ func main() {
 	}
 
 	//////////////////////////
-	clusterConfig := config.GetConfigOrDie()
-	kubeClient, err := kubernetes.NewForConfig(clusterConfig)
-	if err != nil {
-		logger.Fatal("Error building new kubernetes client", zap.Error(err))
-	}
-
 	zipkinEndpoint, err := zipkin.NewEndpoint("brokerIngress", "default-broker:80")
 	if err != nil {
 		logger.Fatal("Unable to create tracing endpoint", zap.Error(err))
 	}
 	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint))
-	logger.Info("Logging oct for the fun of it", zap.Any("oct", oct))
-	tracerUpdater := func(name string, value interface{}) {
-		logger.Info("Updating tracing config", zap.Any("value", value))
-		if name == tracingconfig.ConfigName {
-			cfg := value.(*tracingconfig.Config)
-			logger.Info("Actually Updating tracing config", zap.Any("cfg", cfg))
-			err = oct.ApplyConfig(cfg)
-			if err != nil {
-				logger.Error("Unable to apply open census tracer config", zap.Error(err))
-				return
-			}
-		}
-	}
-
-	// Set up our config store
-	configMapWatcher := configmap.NewInformedWatcher(kubeClient /*system.Namespace()*/, "default")
-	configStore := activatorconfig.NewStore(logger.Sugar(), tracerUpdater)
-	configStore.WatchConfigs(configMapWatcher)
-	tracerUpdater(tracingconfig.ConfigName, &tracingconfig.Config{
+	err = oct.ApplyConfig(&tracingconfig.Config{
 		Enable:         true,
 		Debug:          true,
 		SampleRate:     1,
 		ZipkinEndpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
 	})
+	if err != nil {
+		logger.Fatal("Unable to set OpenCensusTracer config", zap.Error(err))
+	}
 	////////////////////////////
 
 	// Set up signals so we handle the first shutdown signal gracefully.
