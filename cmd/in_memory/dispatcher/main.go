@@ -25,20 +25,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/knative/pkg/system"
-
-	"k8s.io/client-go/kubernetes"
-
-	"github.com/knative/pkg/configmap"
-
-	tracing2 "github.com/knative/pkg/tracing"
-
 	"github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/channelwatcher"
 	"github.com/knative/eventing/pkg/provisioners/swappable"
 	"github.com/knative/eventing/pkg/tracing"
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/system"
+	tracing2 "github.com/knative/pkg/tracing"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"

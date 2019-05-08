@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	tracing2 "github.com/knative/pkg/tracing"
-
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
