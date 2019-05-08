@@ -925,6 +925,10 @@ func envVars(containerName string) []corev1.EnvVar {
 					},
 				},
 			},
+			{
+				Name:  "ZIPKIN_SERVICE_NAME",
+				Value: fmt.Sprintf("%s-broker-filter.%s", brokerName, testNS),
+			},
 		}
 	case ingressContainerName:
 		return []corev1.EnvVar{
@@ -939,6 +943,10 @@ func envVars(containerName string) []corev1.EnvVar {
 			{
 				Name:  "BROKER",
 				Value: brokerName,
+			},
+			{
+				Name:  "ZIPKIN_SERVICE_NAME",
+				Value: fmt.Sprintf("%s-broker-ingress.%s", brokerName, testNS),
 			},
 		}
 	}

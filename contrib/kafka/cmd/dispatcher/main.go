@@ -61,7 +61,7 @@ func main() {
 		logger.Fatal("Unable to add scheme for eventing apis.", zap.Error(err))
 	}
 
-	if err = tracing.SetupZipkinPublishing("natss-dispatcher"); err != nil {
+	if err = tracing.SetupStaticZipkinPublishing("natss-dispatcher", tracing.DebugCfg); err != nil {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 

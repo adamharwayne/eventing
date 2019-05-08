@@ -25,6 +25,8 @@ import (
 	"strings"
 	"time"
 
+	tracing2 "github.com/knative/pkg/tracing"
+
 	"github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/channelwatcher"
 	"github.com/knative/eventing/pkg/provisioners/swappable"
@@ -69,13 +71,13 @@ func main() {
 		logger.Fatal("Unable to create channel watcher.", zap.Error(err))
 	}
 
-	if err = tracing.SetupZipkinPublishing("in-memory-dispatcher"); err != nil {
+	if err = tracing.SetupStaticZipkinPublishing("in-memory-dispatcher", tracing.DebugCfg); err != nil {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 
 	s := &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
-		Handler:      tracing.HTTPSpanMiddleware(sh),
+		Handler:      tracing2.HTTPSpanMiddleware(sh),
 		ErrorLog:     zap.NewStdLog(logger),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,

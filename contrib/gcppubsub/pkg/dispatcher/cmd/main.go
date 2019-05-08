@@ -60,7 +60,7 @@ func main() {
 		logger.Fatal("Error adding the eventingv1alpha1 scheme", zap.Error(err))
 	}
 
-	if err = tracing.SetupZipkinPublishing("natss-dispatcher"); err != nil {
+	if err = tracing.SetupStaticZipkinPublishing("natss-dispatcher", tracing.DebugCfg); err != nil {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 

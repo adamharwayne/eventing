@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	hardcodedConfig = &tracingconfig.Config{
+	// DebugCfg is a configuration to use to record all traces.
+	DebugCfg = &tracingconfig.Config{
 		Enable:         true,
 		Debug:          true,
 		SampleRate:     1,
@@ -53,12 +54,12 @@ func setupZipkinPublishing(serviceName string) (*tracing.OpenCensusTracer, error
 // pieces still need to generate the traces, this just ensures that if generated, they are collected
 // appropriately. This is normally done by using tracing.HTTPSpanMiddleware as a middleware HTTP
 // handler. The configuration will not be dynamically updated.
-func SetupStaticZipkinPublishing(serviceName string) error {
+func SetupStaticZipkinPublishing(serviceName string, cfg *tracingconfig.Config) error {
 	oct, err := setupZipkinPublishing(serviceName)
 	if err != nil {
 		return err
 	}
-	err = oct.ApplyConfig(hardcodedConfig)
+	err = oct.ApplyConfig(cfg)
 	if err != nil {
 		return fmt.Errorf("unable to set OpenCensusTracing config: %v", err)
 	}

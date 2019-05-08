@@ -37,6 +37,7 @@ import (
 	"github.com/knative/eventing/pkg/tracing"
 	"github.com/knative/eventing/pkg/utils"
 	"github.com/knative/pkg/signals"
+	tracing2 "github.com/knative/pkg/tracing"
 	"go.opencensus.io/exporter/prometheus"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
@@ -85,7 +86,7 @@ func main() {
 		Host:   getRequiredEnv("CHANNEL"),
 		Path:   "/",
 	}
-	httpTransport, err := cloudevents.NewHTTPTransport(cloudevents.WithBinaryEncoding(), cehttp.WithMiddleware(tracing.HTTPSpanMiddleware))
+	httpTransport, err := cloudevents.NewHTTPTransport(cloudevents.WithBinaryEncoding(), cehttp.WithMiddleware(tracing2.HTTPSpanMiddleware))
 	if err != nil {
 		logger.Fatal("Unable to create CE transport", zap.Error(err))
 	}
@@ -130,7 +131,7 @@ func main() {
 		logger.Fatal("Unable to add metrics runnableServer", zap.Error(err))
 	}
 
-	if err = tracing.SetupZipkinPublishing(getRequiredEnv("ZIPKIN_SERVICE_NAME")); err != nil {
+	if err = tracing.SetupStaticZipkinPublishing(getRequiredEnv("ZIPKIN_SERVICE_NAME"), tracing.DebugCfg); err != nil {
 		logger.Fatal("Error setting up Zipkin tracing", zap.Error(err))
 	}
 

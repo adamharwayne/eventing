@@ -24,11 +24,12 @@ import (
 	"net/url"
 	"time"
 
+	tracing2 "github.com/knative/pkg/tracing"
+
 	cloudevents "github.com/cloudevents/sdk-go"
 	cehttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/reconciler/trigger/path"
-	"github.com/knative/eventing/pkg/tracing"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,7 +49,7 @@ type Receiver struct {
 // New creates a new Receiver and its associated MessageReceiver. The caller is responsible for
 // Start()ing the returned MessageReceiver.
 func New(logger *zap.Logger, client client.Client) (*Receiver, error) {
-	httpTransport, err := cloudevents.NewHTTPTransport(cloudevents.WithBinaryEncoding(), cehttp.WithMiddleware(tracing.HTTPSpanMiddleware))
+	httpTransport, err := cloudevents.NewHTTPTransport(cloudevents.WithBinaryEncoding(), cehttp.WithMiddleware(tracing2.HTTPSpanMiddleware))
 	if err != nil {
 		return nil, fmt.Errorf("unable to create CloudEvents transport: %v", err)
 	}

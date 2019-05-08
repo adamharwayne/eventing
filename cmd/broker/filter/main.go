@@ -32,6 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+const (
+	NAMESPACE = "NAMESPACE"
+)
+
 func main() {
 	logConfig := provisioners.NewLoggingConfig()
 	logConfig.LoggingLevel["provisioner"] = zapcore.DebugLevel
@@ -53,7 +57,7 @@ func main() {
 		logger.Fatal("Unable to add eventingv1alpha1 scheme", zap.Error(err))
 	}
 
-	if err = tracing.SetupZipkinPublishing(getRequiredEnv("ZIPKIN_SERVICE_NAME")); err != nil {
+	if err = tracing.SetupStaticZipkinPublishing(getRequiredEnv("ZIPKIN_SERVICE_NAME"), tracing.DebugCfg); err != nil {
 		logger.Fatal("Error setting up Zipkin tracing", zap.Error(err))
 	}
 
