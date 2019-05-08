@@ -22,12 +22,12 @@ import (
 	"github.com/knative/eventing/contrib/natss/pkg/dispatcher/channel"
 	"github.com/knative/eventing/contrib/natss/pkg/dispatcher/dispatcher"
 	"github.com/knative/eventing/contrib/natss/pkg/util"
+	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
+	"github.com/knative/eventing/pkg/tracing"
 	"github.com/knative/pkg/signals"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 )
 
 func main() {
@@ -45,6 +45,10 @@ func main() {
 	// Add custom types to this array to get them into the manager's scheme.
 	if err = eventingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		logger.Fatal("Unable to add eventingv1alpha1 scheme", zap.Error(err))
+	}
+
+	if err = tracing.SetupZipkinPublishing("natss-dispatcher"); err != nil {
+		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 
 	logger.Info("Dispatcher starting...")

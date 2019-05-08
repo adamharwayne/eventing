@@ -37,6 +37,7 @@ var (
 // appropriately. This is normally done by using tracing.HTTPSpanMiddleware as a middleware HTTP
 // handler.
 func SetupZipkinPublishing(serviceName string) error {
+	// TODO Should we fill in the hostPort?
 	zipkinEndpoint, err := zipkin.NewEndpoint(serviceName, "")
 	if err != nil {
 		return fmt.Errorf("unable to create tracing endpoint: %v", err)

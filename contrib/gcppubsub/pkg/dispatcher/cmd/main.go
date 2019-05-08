@@ -26,6 +26,7 @@ import (
 	"github.com/knative/eventing/contrib/gcppubsub/pkg/util"
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/provisioners"
+	"github.com/knative/eventing/pkg/tracing"
 	"github.com/knative/pkg/signals"
 	"go.uber.org/zap"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -57,6 +58,10 @@ func main() {
 	// Add custom types to this array to get them into the manager's scheme.
 	if err = eventingv1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
 		logger.Fatal("Error adding the eventingv1alpha1 scheme", zap.Error(err))
+	}
+
+	if err = tracing.SetupZipkinPublishing("natss-dispatcher"); err != nil {
+		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 
 	// We are running both the receiver (takes messages in from the cluster and writes them to
