@@ -26,6 +26,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// TODO Move this to knative/pkg.
+
 var (
 	// DebugCfg is a configuration to use to record all traces.
 	DebugCfg = &tracingconfig.Config{
@@ -66,6 +68,11 @@ func SetupStaticZipkinPublishing(serviceName string, cfg *tracingconfig.Config) 
 	return nil
 }
 
+// SetupDynamicZipkinPublishing sets up Zipkin trace publishing for the process, by watching a
+// ConfigMap for the configuration. Note that other pieces still need to generate the traces, this
+// just ensures that if generated, they are collected appropriately. This is normally done by using
+// tracing.HTTPSpanMiddleware as a middleware HTTP handler. The configuration will be dynamically
+// updated when the ConfigMap is updated.
 func SetupDynamicZipkinPublishing(logger *zap.SugaredLogger, configMapWatcher configmap.Watcher, serviceName string) error {
 	oct, err := setupZipkinPublishing(serviceName)
 	if err != nil {

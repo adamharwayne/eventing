@@ -24,8 +24,11 @@ import (
 	"github.com/knative/eventing/contrib/natss/pkg/util"
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/tracing"
+	"github.com/knative/pkg/configmap"
 	"github.com/knative/pkg/signals"
+	"github.com/knative/pkg/system"
 	"go.uber.org/zap"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -47,10 +50,14 @@ func main() {
 		logger.Fatal("Unable to add eventingv1alpha1 scheme", zap.Error(err))
 	}
 
-	if err = tracing.SetupStaticZipkinPublishing("natss-dispatcher", tracing.DebugCfg); err != nil {
+	// Zipkin tracing.
+	kc := kubernetes.NewForConfigOrDie(mgr.GetConfig())
+	configMapWatcher := configmap.NewInformedWatcher(kc, system.Namespace())
+	if err = tracing.SetupDynamicZipkinPublishing(logger.Sugar(), configMapWatcher, "natss-dispatcher"); err != nil {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 
+	// We are running both the receiver (takes messages in from the cluster and writes them to
 	logger.Info("Dispatcher starting...")
 	d, err := dispatcher.NewDispatcher(util.GetDefaultNatssURL(), util.GetDefaultClusterID(), logger)
 	if err != nil {
@@ -68,6 +75,13 @@ func main() {
 
 	logger.Info("Dispatcher controller starting...")
 	stopCh := signals.SetupSignalHandler()
+
+	// configMapWatcher does not block, so start it first.
+	if err = configMapWatcher.Start(stopCh); err != nil {
+		logger.Fatal("Failed to start ConfigMap watcher", zap.Error(err))
+	}
+
+	// Start blocks forever.
 	err = mgr.Start(stopCh)
 	if err != nil {
 		logger.Fatal("Manager.Start() returned an error", zap.Error(err))
