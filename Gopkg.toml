@@ -109,7 +109,3 @@ required = [
 [[override]]
   name = "go.uber.org/zap"
   revision = "67bc79d13d155c02fd008f721863ff8cc5f30659"
-
-[[constraint]]
-  name = "github.com/openzipkin/zipkin-go"
-  version = "0.1.6"

@@ -19,8 +19,11 @@ package tracing
 import (
 	"fmt"
 
-	tracingconfig "github.com/knative/eventing/pkg/tracing/config"
+	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/tracing"
+	tracingconfig "github.com/knative/pkg/tracing/config"
 	"github.com/openzipkin/zipkin-go"
+	"go.uber.org/zap"
 )
 
 var (
@@ -32,22 +35,62 @@ var (
 	}
 )
 
-// SetupZipkinPublishing sets up Zipkin trace publishing for the process. Note that other pieces
+// setupZipkinPublishing sets up Zipkin trace publishing for the process. Note that other pieces
 // still need to generate the traces, this just ensures that if generated, they are collected
 // appropriately. This is normally done by using tracing.HTTPSpanMiddleware as a middleware HTTP
 // handler.
-func SetupZipkinPublishing(serviceName string) error {
+func setupZipkinPublishing(serviceName string) (*tracing.OpenCensusTracer, error) {
 	// TODO Should we fill in the hostPort?
 	zipkinEndpoint, err := zipkin.NewEndpoint(serviceName, "")
 	if err != nil {
-		return fmt.Errorf("unable to create tracing endpoint: %v", err)
+		return nil, fmt.Errorf("unable to create tracing endpoint: %v", err)
 	}
-	oct := NewOpenCensusTracer(WithZipkinExporter(CreateZipkinReporter, zipkinEndpoint))
-	// TODO: Read this from a ConfigMap, rather than hard coding it. Watch the ConfigMap for dynamic
-	// updating.
+	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint))
+	return oct, nil
+}
+
+// SetupStaticZipkinPublishing sets up Zipkin trace publishing for the process. Note that other
+// pieces still need to generate the traces, this just ensures that if generated, they are collected
+// appropriately. This is normally done by using tracing.HTTPSpanMiddleware as a middleware HTTP
+// handler. The configuration will not be dynamically updated.
+func SetupStaticZipkinPublishing(serviceName string) error {
+	oct, err := setupZipkinPublishing(serviceName)
+	if err != nil {
+		return err
+	}
 	err = oct.ApplyConfig(hardcodedConfig)
 	if err != nil {
 		return fmt.Errorf("unable to set OpenCensusTracing config: %v", err)
 	}
+	return nil
+}
+
+func SetupDynamicZipkinPublishing(logger *zap.SugaredLogger, configMapWatcher configmap.Watcher, serviceName string) error {
+	oct, err := setupZipkinPublishing(serviceName)
+	if err != nil {
+		return err
+	}
+
+	tracerUpdater := func(name string, value interface{}) {
+		if name == tracingconfig.ConfigName {
+			cfg := value.(*tracingconfig.Config)
+			logger.Debugw("Updating tracing config", zap.Any("cfg", cfg))
+			err = oct.ApplyConfig(cfg)
+			if err != nil {
+				logger.Errorw("Unable to apply open census tracer config", zap.Error(err))
+				return
+			}
+		}
+	}
+
+	// Set up our config store.
+	configStore := configmap.NewUntypedStore(
+		"tracing-config",
+		logger,
+		configmap.Constructors{
+			tracingconfig.ConfigName: tracingconfig.NewTracingConfigFromConfigMap,
+		},
+		tracerUpdater)
+	configStore.WatchConfigs(configMapWatcher)
 	return nil
 }

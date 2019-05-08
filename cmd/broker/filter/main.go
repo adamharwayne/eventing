@@ -32,10 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-const (
-	NAMESPACE = "NAMESPACE"
-)
-
 func main() {
 	logConfig := provisioners.NewLoggingConfig()
 	logConfig.LoggingLevel["provisioner"] = zapcore.DebugLevel

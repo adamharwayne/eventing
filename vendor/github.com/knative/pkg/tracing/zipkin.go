@@ -20,7 +20,7 @@ import (
 	zipkinreporter "github.com/openzipkin/zipkin-go/reporter"
 	httpreporter "github.com/openzipkin/zipkin-go/reporter/http"
 
-	"github.com/knative/eventing/pkg/tracing/config"
+	"github.com/knative/pkg/tracing/config"
 )
 
 // ZipkinReporterFactory is a factory function which creates a reporter given a config
