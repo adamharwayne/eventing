@@ -79,12 +79,8 @@ func MakeIngress(args *IngressArgs) *appsv1.Deployment {
 									Value: args.Broker.Name,
 								},
 								{
-									Name: "NAMESPACE",
-									ValueFrom: &corev1.EnvVarSource{
-										FieldRef: &corev1.ObjectFieldSelector{
-											FieldPath: "metadata.namespace",
-										},
-									},
+									Name:  "ZIPKIN_SERVICE_NAME",
+									Value: fmt.Sprintf("%s-broker-ingress.%s", args.Broker.Name, args.Broker.Namespace),
 								},
 							},
 							Ports: []corev1.ContainerPort{

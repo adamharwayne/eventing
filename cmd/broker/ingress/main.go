@@ -29,15 +29,13 @@ import (
 	"sync"
 	"time"
 
-	http2 "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
-
-	"github.com/knative/eventing/pkg/tracing"
-	tracingconfig "github.com/knative/eventing/pkg/tracing/config"
-
 	cloudevents "github.com/cloudevents/sdk-go"
+	cehttp "github.com/cloudevents/sdk-go/pkg/cloudevents/transport/http"
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/broker"
 	"github.com/knative/eventing/pkg/provisioners"
+	"github.com/knative/eventing/pkg/tracing"
+	tracingconfig "github.com/knative/eventing/pkg/tracing/config"
 	"github.com/knative/eventing/pkg/utils"
 	"github.com/knative/pkg/signals"
 	"github.com/openzipkin/zipkin-go"
@@ -89,7 +87,7 @@ func main() {
 		Host:   getRequiredEnv("CHANNEL"),
 		Path:   "/",
 	}
-	httpTransport, err := cloudevents.NewHTTPTransport(cloudevents.WithBinaryEncoding(), http2.WithMiddleware(tracing.HTTPSpanMiddleware))
+	httpTransport, err := cloudevents.NewHTTPTransport(cloudevents.WithBinaryEncoding(), cehttp.WithMiddleware(tracing.HTTPSpanMiddleware))
 	if err != nil {
 		logger.Fatal("Unable to create CE transport", zap.Error(err))
 	}
@@ -134,12 +132,15 @@ func main() {
 		logger.Fatal("Unable to add metrics runnableServer", zap.Error(err))
 	}
 
-	//////////////////////////
-	zipkinEndpoint, err := zipkin.NewEndpoint("brokerIngress", "default-broker:80")
+	// Zipkin Tracing. This only works if the HTTP server has the tracing.HTTPSpanMiddleware
+	// installed.
+	zipkinEndpoint, err := zipkin.NewEndpoint(getRequiredEnv("ZIPKIN_SERVICE_NAME"), "")
 	if err != nil {
 		logger.Fatal("Unable to create tracing endpoint", zap.Error(err))
 	}
 	oct := tracing.NewOpenCensusTracer(tracing.WithZipkinExporter(tracing.CreateZipkinReporter, zipkinEndpoint))
+	// TODO: Read this from a ConfigMap, rather than hard coding it. Watch the ConfigMap for dynamic
+	// updating.
 	err = oct.ApplyConfig(&tracingconfig.Config{
 		Enable:         true,
 		Debug:          true,
@@ -149,7 +150,6 @@ func main() {
 	if err != nil {
 		logger.Fatal("Unable to set OpenCensusTracer config", zap.Error(err))
 	}
-	////////////////////////////
 
 	// Set up signals so we handle the first shutdown signal gracefully.
 	stopCh := signals.SetupSignalHandler()
