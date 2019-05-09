@@ -19,14 +19,12 @@ package resources
 import (
 	"fmt"
 
-	"github.com/knative/pkg/kmeta"
-
-	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
-
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
+	"github.com/knative/pkg/kmeta"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // FilterArgs are the arguments to create a Broker's filter Deployment.
@@ -69,6 +67,10 @@ func MakeFilterDeployment(args *FilterArgs) *appsv1.Deployment {
 											FieldPath: "metadata.namespace",
 										},
 									},
+								},
+								{
+									Name:  "ZIPKIN_SERVICE_NAME",
+									Value: fmt.Sprintf("%s-broker-filter.%s", args.Broker.Name, args.Broker.Namespace),
 								},
 							},
 						},
