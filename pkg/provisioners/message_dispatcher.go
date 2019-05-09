@@ -25,10 +25,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/knative/eventing/pkg/utils"
+	"go.opencensus.io/plugin/ochttp"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
-
-	"github.com/knative/eventing/pkg/utils"
 )
 
 const correlationIDHeaderName = "Knative-Correlation-Id"
@@ -64,7 +64,9 @@ type DispatchDefaults struct {
 // messages to HTTP destinations.
 func NewMessageDispatcher(logger *zap.SugaredLogger) *MessageDispatcher {
 	return &MessageDispatcher{
-		httpClient:       &http.Client{},
+		httpClient: &http.Client{
+			Transport: &ochttp.Transport{},
+		},
 		forwardHeaders:   sets.NewString(forwardHeaders...),
 		forwardPrefixes:  forwardPrefixes,
 		supportedSchemes: sets.NewString("http", "https"),
