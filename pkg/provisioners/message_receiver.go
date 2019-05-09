@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"strings"
 
-	tracing2 "github.com/knative/pkg/tracing"
+	"github.com/knative/pkg/tracing"
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
@@ -114,7 +114,7 @@ func (r *MessageReceiver) stop(srv *http.Server) {
 
 // handler creates the http.Handler used by the http.Server started in MessageReceiver.Run.
 func (r *MessageReceiver) handler() http.Handler {
-	return tracing2.HTTPSpanMiddleware(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+	return tracing.HTTPSpanMiddleware(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		if req.URL.Path != "/" {
 			res.WriteHeader(http.StatusNotFound)
 			return

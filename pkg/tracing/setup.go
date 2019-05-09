@@ -36,6 +36,15 @@ var (
 		SampleRate:     1,
 		ZipkinEndpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
 	}
+	// EnabledZeroSampling is a configuration that enables tracing, but has a sampling rate of zero.
+	// The intention is that this allows this to record traces that other components started, but
+	// will not start traces itself.
+	EnabledZeroSampling = &tracingconfig.Config{
+		Enable:         true,
+		Debug:          false,
+		SampleRate:     0,
+		ZipkinEndpoint: "http://zipkin.istio-system.svc.cluster.local:9411/api/v2/spans",
+	}
 )
 
 // setupZipkinPublishing sets up Zipkin trace publishing for the process. Note that other pieces
