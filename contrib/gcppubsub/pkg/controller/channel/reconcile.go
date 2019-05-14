@@ -191,11 +191,13 @@ func (r *reconciler) reconcile(ctx context.Context, c *eventingv1alpha1.Channel)
 			subsToDelete: originalPCS.Subscriptions,
 		}
 		// Topic is nil because it is only used for sub creation, not deletion.
+		logging.FromContext(ctx).Info("Before syncSubscriptions")
 		err = r.syncSubscriptions(ctx, originalPCS, gcpCreds, nil, subsToSync)
 		if err != nil {
 			r.recorder.Eventf(c, corev1.EventTypeWarning, subscriptionSyncFailed, "Failed to sync Subscription for the Channel: %v", err)
 			return false, err
 		}
+		logging.FromContext(ctx).Info("Before deleteTopics")
 		err = r.deleteTopic(ctx, originalPCS, gcpCreds)
 		if err != nil {
 			r.recorder.Eventf(c, corev1.EventTypeWarning, topicDeleteFailed, "Failed to delete Topic for the Channel: %v", err)
@@ -423,7 +425,9 @@ type syncSubs struct {
 
 func (r *reconciler) syncSubscriptions(ctx context.Context, plannedPCS *pubsubutil.GcpPubSubChannelStatus, gcpCreds *google.Credentials, topic pubsubutil.PubSubTopic, subsToSync *syncSubs) error {
 	for _, subToCreate := range subsToSync.subsToCreate {
+		logging.FromContext(ctx).Info("before CreateSubscription")
 		_, err := r.createSubscription(ctx, gcpCreds, plannedPCS.GCPProject, topic, subToCreate.Subscription)
+		logging.FromContext(ctx).Info("after CreateSubscription")
 		if err != nil {
 			logging.FromContext(ctx).Error("Unable to create subscriber", zap.Error(err), zap.Any("channelSubscriber", subToCreate))
 			return err
@@ -431,7 +435,9 @@ func (r *reconciler) syncSubscriptions(ctx context.Context, plannedPCS *pubsubut
 	}
 
 	for _, subToDelete := range subsToSync.subsToDelete {
+		logging.FromContext(ctx).Info("before deleteSubscription", zap.Any("subToDelete", subToDelete))
 		err := r.deleteSubscription(ctx, gcpCreds, plannedPCS.GCPProject, &subToDelete)
+		logging.FromContext(ctx).Info("after deleteSubscription")
 		if err != nil {
 			logging.FromContext(ctx).Error("Unable to delete subscriber", zap.Error(err), zap.Any("channelSubscriber", subToDelete))
 			return err
@@ -466,17 +472,21 @@ func (r *reconciler) createSubscription(ctx context.Context, gcpCreds *google.Cr
 }
 
 func (r *reconciler) deleteSubscription(ctx context.Context, gcpCreds *google.Credentials, gcpProject string, subStatus *pubsubutil.GcpPubSubSubscriptionStatus) error {
+	logging.FromContext(ctx).Info("Before pubsubclientcreator")
 	psc, err := r.pubSubClientCreator(ctx, gcpCreds, gcpProject)
 	if err != nil {
 		return err
 	}
+	logging.FromContext(ctx).Info("Before exists")
 	sub := psc.SubscriptionInProject(subStatus.Subscription, gcpProject)
 	exists, err := sub.Exists(ctx)
+	logging.FromContext(ctx).Info("After exists")
 	if err != nil {
 		return err
 	}
 	if !exists {
 		return nil
 	}
+	logging.FromContext(ctx).Info("Before delete")
 	return sub.Delete(ctx)
 }
