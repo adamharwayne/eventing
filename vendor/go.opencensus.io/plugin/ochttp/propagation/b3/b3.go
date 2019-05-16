@@ -20,6 +20,7 @@ package b3 // import "go.opencensus.io/plugin/ochttp/propagation/b3"
 import (
 	"encoding/hex"
 	"net/http"
+	"log"
 
 	"go.opencensus.io/trace"
 	"go.opencensus.io/trace/propagation"
@@ -46,20 +47,25 @@ var _ propagation.HTTPFormat = (*HTTPFormat)(nil)
 
 // SpanContextFromRequest extracts a B3 span context from incoming requests.
 func (f *HTTPFormat) SpanContextFromRequest(req *http.Request) (sc trace.SpanContext, ok bool) {
+	log.Printf("SpanContextFromRequest: starting: %+v", req.Header)
 	tid, ok := ParseTraceID(req.Header.Get(TraceIDHeader))
 	if !ok {
+		log.Printf("SpanContextFromRequest: exiting due to traceIdHeader")
 		return trace.SpanContext{}, false
 	}
 	sid, ok := ParseSpanID(req.Header.Get(SpanIDHeader))
 	if !ok {
+		log.Printf("SpanContextFromRequest: exiting due to spanIdHeader")
 		return trace.SpanContext{}, false
 	}
 	sampled, _ := ParseSampled(req.Header.Get(SampledHeader))
-	return trace.SpanContext{
+	t := trace.SpanContext{
 		TraceID:      tid,
 		SpanID:       sid,
 		TraceOptions: sampled,
-	}, true
+	}
+	log.Printf("SpanContextFromRequest: %+v", t)
+	return t, true
 }
 
 // ParseTraceID parses the value of the X-B3-TraceId header.
@@ -87,14 +93,17 @@ func ParseTraceID(tid string) (trace.TraceID, bool) {
 // ParseSpanID parses the value of the X-B3-SpanId or X-B3-ParentSpanId headers.
 func ParseSpanID(sid string) (spanID trace.SpanID, ok bool) {
 	if sid == "" {
+		log.Printf("SpanContextFromRequest.ParseSpanID: exit due to empty string")
 		return trace.SpanID{}, false
 	}
 	b, err := hex.DecodeString(sid)
 	if err != nil {
+		log.Printf("SpanContextFromRequest.ParseSpanID: exit due to decode failure: %v :: %v", sid, err)
 		return trace.SpanID{}, false
 	}
 	start := 8 - len(b)
 	copy(spanID[start:], b)
+	log.Printf("SpanContextFromRequest.ParseSpanID: exit good: %v", spanID)
 	return spanID, true
 }
 

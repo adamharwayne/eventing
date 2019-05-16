@@ -21,9 +21,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
+
+	"go.opencensus.io/trace"
+
+	"go.opencensus.io/plugin/ochttp/propagation/b3"
 
 	"github.com/knative/eventing/pkg/utils"
 	"go.opencensus.io/plugin/ochttp"
@@ -65,7 +70,9 @@ type DispatchDefaults struct {
 func NewMessageDispatcher(logger *zap.SugaredLogger) *MessageDispatcher {
 	return &MessageDispatcher{
 		httpClient: &http.Client{
-			Transport: &ochttp.Transport{},
+			Transport: &ochttp.Transport{
+				Propagation: &b3.HTTPFormat{},
+			},
 		},
 		forwardHeaders:   sets.NewString(forwardHeaders...),
 		forwardPrefixes:  forwardPrefixes,
@@ -109,6 +116,11 @@ func (d *MessageDispatcher) executeRequest(url *url.URL, message *Message) (*Mes
 		return nil, fmt.Errorf("unable to create request %v", err)
 	}
 	req.Header = d.toHTTPHeaders(message.Headers)
+	log.Printf("executeRequest headers: %+v", req.Header)
+	sc, ok := b3.HTTPFormat{}.SpanContextFromRequest(req)
+	if ok {
+		req.WithContext(trace.NewContext(req.Context(), sc))
+	}
 	res, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err

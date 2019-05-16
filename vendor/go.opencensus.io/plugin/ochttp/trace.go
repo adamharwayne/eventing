@@ -17,6 +17,7 @@ package ochttp
 import (
 	"io"
 	"net/http"
+	"log"
 	"net/http/httptrace"
 
 	"go.opencensus.io/plugin/ochttp/propagation/b3"
@@ -53,6 +54,7 @@ type traceTransport struct {
 // The created span can follow a parent span, if a parent is presented in
 // the request's context.
 func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Printf("traceTransport.RoundTrip start headers: %v", req.Header)
 	name := t.formatSpanName(req)
 	// TODO(jbd): Discuss whether we want to prefix
 	// outgoing requests with Sent.
@@ -62,8 +64,10 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 	if t.newClientTrace != nil {
 		req = req.WithContext(httptrace.WithClientTrace(ctx, t.newClientTrace(req, span)))
+		log.Printf("traceTransport.RoundTrip t.newClientTrace headers: %v", req.Header)
 	} else {
 		req = req.WithContext(ctx)
+		log.Printf("traceTransport.RoundTrip withContext headers: %v", req.Header)
 	}
 
 	if t.format != nil {
@@ -77,10 +81,13 @@ func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 			header[k] = v
 		}
 		req.Header = header
+		log.Printf("traceTransport.RoundTrip just before SpanContextToRequest: %v :: %+v", req.Header, span.SpanContext())
 		t.format.SpanContextToRequest(span.SpanContext(), req)
 	}
 
+	log.Printf("traceTransport.RoundTrip just before AddAttributes: %v", req.Header)
 	span.AddAttributes(requestAttrs(req)...)
+	log.Printf("traceTransport.RoundTrip just before roundtrip: %v", req.Header)
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
 		span.SetStatus(trace.Status{Code: trace.StatusCodeUnknown, Message: err.Error()})

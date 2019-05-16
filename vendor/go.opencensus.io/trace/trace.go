@@ -18,6 +18,7 @@ import (
 	"context"
 	crand "crypto/rand"
 	"encoding/binary"
+	"log"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -173,6 +174,7 @@ func StartSpan(ctx context.Context, name string, o ...StartOption) (context.Cont
 		p.addChild()
 		parent = p.spanContext
 	}
+	log.Printf("FakeRoundTrip.StartSpan parent %+v, %+v", parent, ctx)
 	for _, op := range o {
 		op(&opts)
 	}

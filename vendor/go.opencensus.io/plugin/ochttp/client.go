@@ -16,6 +16,7 @@ package ochttp
 
 import (
 	"net/http"
+	"log"
 	"net/http/httptrace"
 
 	"go.opencensus.io/trace"
@@ -66,6 +67,7 @@ type Transport struct {
 
 // RoundTrip implements http.RoundTripper, delegating to Base and recording stats and traces for the request.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	log.Printf("RoundTrip: start headers %v", req.Header)
 	rt := t.base()
 	if isHealthEndpoint(req.URL.Path) {
 		return rt.RoundTrip(req)
