@@ -50,6 +50,8 @@ type Dispatcher interface {
 // MessageDispatcher is the 'real' Dispatcher used everywhere except unit tests.
 var _ Dispatcher = &MessageDispatcher{}
 
+var propagation = &b3.HTTPFormat{}
+
 // MessageDispatcher dispatches messages to a destination over HTTP.
 type MessageDispatcher struct {
 	httpClient       *http.Client
@@ -71,7 +73,7 @@ func NewMessageDispatcher(logger *zap.SugaredLogger) *MessageDispatcher {
 	return &MessageDispatcher{
 		httpClient: &http.Client{
 			Transport: &ochttp.Transport{
-				Propagation: &b3.HTTPFormat{},
+				Propagation: propagation,
 			},
 		},
 		forwardHeaders:   sets.NewString(forwardHeaders...),
@@ -117,10 +119,13 @@ func (d *MessageDispatcher) executeRequest(url *url.URL, message *Message) (*Mes
 	}
 	req.Header = d.toHTTPHeaders(message.Headers)
 	log.Printf("executeRequest headers: %+v", req.Header)
-	sc, ok := b3.HTTPFormat{}.SpanContextFromRequest(req)
-	if ok {
-		req.WithContext(trace.NewContext(req.Context(), sc))
+
+	// Attach the Span context that is currently saved in the request's headers.
+	if sc, ok := propagation.SpanContextFromRequest(req); ok {
+		newCtx, _ := trace.StartSpanWithRemoteParent(req.Context(), req.URL.Path, sc)
+		req = req.WithContext(newCtx)
 	}
+
 	res, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
