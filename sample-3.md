@@ -1,18 +1,46 @@
-3
-## C
+# Step-by-step: Deploy "Hello World" Eventing soluction
 
-This sample is identical to sample 2, but rather than using a single YAML, we
-will apply each pieces one step at a time, explaining what it does as we do so.
+This step-by-step guide will guide you through all the steps involved to 
+run “Hello World” eventing solution, where you will send an event to the 
+Knative eventing broker inside your K8s namespace and receive it in a pod 
+using Knative eventing. ETA - 20-30 mins. If you want to skip all the steps 
+and want to quickly deploy the solution then please refer to 
+[Quick Start: Deploy "Hello World" eventing solution](todo).
 
-Identical image from 2.
+## Before you begin
 
-First we will create a handful of useful shell variables to allow us to not have to type things out everytime.
+Before you begin:
+- Have a Kubernetes Cluster running version 1.12.
+- [Install Knative Eventing](todo) and verify the health of the Knative Eventing
+  control plane.
+  
+## Description
+
+This sample is identical to [Quick Start: Deploy "Hello World" eventing solution](todo),
+but rather than using a single YAML, we will apply each piece one step at a time, 
+explaining what it does as we do so.
+
+We will create the following topology:
+
+Image from 2.
+
+- [`Pod` named `curl`](#event-producer), acting as the event producer.
+- `Broker` named `default`.
+- Two [`Trigger`s](#triggers), each with a mutually exclusivefilter pointing at distinct 
+  subscribers.
+- Two Kubernetes [`Service`s](#event-consumers), each pointing at a unique:
+    - [`Deployment`](#event-consumers), acting as the event consumer.
+
+## Helpers
+
+First we will create useful shell variables to allow us to not have to type 
+things out every time.
 
 ```shell
 K_NAMESPACE=kn-eventing-step-by-step-sample
 ```
 
-## D
+## Namespace
 
 Create the namespace.
 
@@ -33,7 +61,7 @@ kubectl label namespace $K_NAMESPACE knative-eventing-injection=enabled
 ### Broker
 
 What is a `Broker`? It can be thought of as an event mesh. Event
-producers send events into the `Broker`. Event consumers register the events
+producers send events into the `Broker`. Event consumers register the kinds of events
 they are interested in with the `Broker` (via `Trigger`s, described later). The
 `Broker` ensures that every event sent to the `Broker` by event producers is sent
 to all interested event consumers.
@@ -147,10 +175,6 @@ END
 
 Let's wait for the `Deployment`s to be ready, as shown by their Available status
 condition.
-
-```shell
-kubectl -n $K_NAMESPACE get deployments -o jsonpath='{.items[*].status.conditions[?(@.type == "Available")].status}'
-```
 
 ```shell
 kubectl -n $K_NAMESPACE get deployments event-display-dev event-display-test                                                                                                                                            +54 10:30 ❰─┘
