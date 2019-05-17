@@ -10,7 +10,6 @@ and want to quickly deploy the solution then please refer to
 ## Before you begin
 
 Before you begin:
-- Have a Kubernetes Cluster running version 1.12.
 - [Install Knative Eventing](todo) and verify the health of the Knative Eventing
   control plane.
   
