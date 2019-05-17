@@ -526,4 +526,12 @@ kubectl delete namespace $K_NAMESPACE
 
 ## Next Steps
 
-...
+- [Using event importer to consume events](todo)
+- [Configure Broker to use a different Channel](todo)
+- [Introduction to Event Registry](todo)
+
+## Further Reading
+
+- [Eventing Concepts](todo) - Descriptions of all the Knative Eventing pieces and
+  how the interact.
+- [Advanced filtering using Triggers](todo)
