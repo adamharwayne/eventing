@@ -61,9 +61,11 @@ kubectl label namespace $K_NAMESPACE knative-eventing-injection=enabled
 
 What is a `Broker`? It can be thought of as an event mesh. Event
 producers send events into the `Broker`. Event consumers register the kinds of events
-they are interested in with the `Broker` (via `Trigger`s, described later). The
+they are interested in with the `Broker` (via `Trigger`s, 
+[described later](#triggers)). The
 `Broker` ensures that every event sent to the `Broker` by event producers is sent
-to all interested event consumers.
+to all interested event consumers. To learn more about `Broker`s, see [`Broker` in
+Eventing Concepts](todo).
 
 
 Let's verify that the `Broker` is in a healthy state.
@@ -93,6 +95,11 @@ event consumers, so that we can show how to selectively send events to distinct
 event consumers later.
 
 Setup the '-dev' `Service` and `Deployment`.
+
+**TODO** Use a Google Cloud style tabbed interface to allow people to choose if they
+wnat bash, or download a yaml and run, something else... Similar to Google Cloud
+pages that show gcloud, Cloud Console, and API tabs for their examples.
+
 
 ```shell
 cat << END | kubectl -n $K_NAMESPACE apply -f -
@@ -201,6 +208,8 @@ logically breaks into two pieces:
 - Filter - What events I am interested in.
 - Subscriber - Where should those events be sent.
 
+To learn more about `Broker`s, see [`Trigger` in Eventing Concepts](todo).
+
 ### Filter
 
 The Filter can be seen in `spec.filter`. For example:
@@ -212,7 +221,8 @@ spec:
       source: https://knative.eventing.dev
 ```
 
-Every valid CloudEvent has attributes named `Type` and `Source`. `Trigger`s allow
+Every valid [CloudEvent](https://github.com/cloudevents/spec/blob/v0.2/spec.md)
+has attributes named `Type` and `Source`. `Trigger`s allow
 you to specify interest in specific CloudEvents by matching the CloudEvents `Type`
 and `Source`.  
 
@@ -240,8 +250,10 @@ spec:
 
 Subscriber describes where to send CloudEvents. Once the filter has matched a
 CloudEvent, then the Subscriber describes where it is sent. Subscriber is an
-Object Reference to an `Addressable`. Normally it is a `Broker`, `Channel`, 
-K8s `Service`, or Knative `Service`.
+Object Reference to an [`Addressable`](addressable-concept) object. Normally it 
+is a [`Broker`](broker-concept), [`Channel`](channel-concept), 
+[Kubernetes `Service`](https://kubernetes.io/docs/concepts/services-networking/service/),
+ or [Knative `Service`](todo).
 
 ### Creation
 
@@ -317,13 +329,13 @@ The important column is the `READY` column. We want the value to be `True` for a
 
 ## Recap
 
-So far, we have created a namespace and had a `Broker` created in it. Then we 
+So far, we have created a namespace and had a `Broker` created inside it. Then we 
 created a pair of event consumers and registered their interest in a certain
 events by creating `Trigger`s.
 
 ## Event Producer
 
-We will be creating a CloudEvent by sending an HTTP request to directly to the
+We will create a CloudEvent by sending an HTTP request directly to the
 `Broker`. There are libraries that make this easy, such as 
 [CloudEvents Go SDK](todo), but for simplicity we will craft a curl request
 manually.
