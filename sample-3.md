@@ -102,7 +102,7 @@ pages that show gcloud, Cloud Console, and API tabs for their examples.
 
 
 ```shell
-cat << END | kubectl -n $K_NAMESPACE apply -f -
+kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -142,7 +142,7 @@ END
 Now setup the '-test' `Service` and `Deployment`:
 
 ```shell
-cat << END | kubectl -n $K_NAMESPACE apply -f -
+kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: apps/v1
 kind: Deployment
 metadata:
