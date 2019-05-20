@@ -25,7 +25,7 @@ Image from 2.
 
 - [`Pod` named `curl`](#event-producer), acting as the event producer.
 - `Broker` named `default`.
-- Two [`Trigger`s](#triggers), each with a mutually exclusivefilter pointing at distinct 
+- Two [`Trigger`s](#triggers), each with a distinct filter pointing at distinct 
   subscribers.
 - Two Kubernetes [`Service`s](#event-consumers), each pointing at a unique:
     - [`Deployment`](#event-consumers), acting as the event consumer.
@@ -84,7 +84,7 @@ default   True             default-broker.kn-eventing-step-by-step-sample.svc.cl
 We are particularly interested in the second column, `READY`. We want that value to
 be `True`. It may take a minute or two to become `True`. If it is not `True` within
 two minutes, then something has gone wrong. Hopefully the `REASON` column gives a
-useful error message. See our [Broker Debugging Guide](somewhere) to help fix the
+useful error message. See our [Broker Debugging Guide](todo) to help fix the
 error.
 
 ## Event Consumers
@@ -94,7 +94,7 @@ The first thing we are going to do is create our event consumers. These are
 event consumers, so that we can show how to selectively send events to distinct
 event consumers later.
 
-Setup the '-dev' `Service` and `Deployment`.
+Setup the 'foo' `Service` and `Deployment`.
 
 **TODO** Use a Google Cloud style tabbed interface to allow people to choose if they
 wnat bash, or download a yaml and run, something else... Similar to Google Cloud
@@ -106,12 +106,12 @@ kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: event-display-dev
+  name: foo-display
 spec:
   replicas: 1
   selector:
     matchLabels: &labels
-      app: event-display-dev
+      app: foo-display
   template:
     metadata:
       labels: *labels
@@ -128,10 +128,10 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: event-display-dev
+  name: foo-display
 spec:
   selector:
-    app: event-display-dev
+    app: foo-display
   ports:
   - protocol: TCP
     port: 80
@@ -139,19 +139,19 @@ spec:
 END
 ```
 
-Now setup the '-test' `Service` and `Deployment`:
+Now setup the 'bar' `Service` and `Deployment`:
 
 ```shell
 kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: event-display-test
+  name: bar-display
 spec:
   replicas: 1
   selector:
     matchLabels: &labels
-      app: event-display-test
+      app: bar-display
   template:
     metadata:
       labels: *labels
@@ -168,10 +168,10 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: event-display-test
+  name: bar-display
 spec:
   selector:
-    app: event-display-test
+    app: bar-display
   ports:
   - protocol: TCP
     port: 80
@@ -183,15 +183,15 @@ Let's wait for the `Deployment`s to be ready, as shown by their Available status
 condition.
 
 ```shell
-kubectl -n $K_NAMESPACE get deployments event-display-dev event-display-test                                                                                                                                            +54 10:30 ❰─┘
+kubectl -n $K_NAMESPACE get deployments foo-display bar-display
 ```
 
 This should return something like:
 ```shell
-NAME                 DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-event-display-dev    1         1         1            1           16m
-NAME                 DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
-event-display-test   1         1         1            1           16m
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+foo-display    1         1         1            1           16m
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+bar-display    1         1         1            1           16m
 ```
 
 In particular, we want the number in the `DESIRED` column to match the number in the
@@ -202,7 +202,7 @@ TODO Add an investigation guide.
 
 ## Triggers
 
-Earlier we said that different event consumers can register their intereset with a
+Earlier we said that different event consumers can register their interest with a
 `Broker`. That interest is registered by `Trigger` objects. A `Trigger` object
 logically breaks into two pieces:
 - Filter - What events I am interested in.
@@ -217,8 +217,8 @@ The Filter can be seen in `spec.filter`. For example:
 spec:
   filter:
     sourceAndType:
-      type: knative.eventing.hello_world
-      source: https://knative.eventing.dev
+      type: foo
+      source: bar
 ```
 
 Every valid [CloudEvent](https://github.com/cloudevents/spec/blob/v0.2/spec.md)
@@ -251,61 +251,56 @@ spec:
 Subscriber describes where to send CloudEvents. Once the filter has matched a
 CloudEvent, then the Subscriber describes where it is sent. Subscriber is an
 Object Reference to an [`Addressable`](addressable-concept) object. Normally it 
-is a [`Broker`](broker-concept), [`Channel`](channel-concept), 
+is a [`Broker`](todo), [`Channel`](todo), 
 [Kubernetes `Service`](https://kubernetes.io/docs/concepts/services-networking/service/),
  or [Knative `Service`](todo).
 
 ### Creation
 
-We will now create one `Trigger` each for the `-dev` and `-test` event display
+We will now create one `Trigger` each for the `foo` and `bar` event display
 `Service`s we made in the previous step.
 
-This `Trigger` will send events to the `-dev` `Service`.
+This `Trigger` will send events to the `foo` `Service`.
 ```shell
-cat << END | kubectl -n $K_NAMESPACE apply -f -
+kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Trigger
 metadata:
-  name: event-display-dev
+  name: foo-display
 spec:
   filter:
     sourceAndType:
-      type: knative.eventing.hello_world
-      source: https://knative.eventing.dev
+      type: foo
   subscriber:
     ref:
      apiVersion: v1
      kind: Service
-     name: event-display-dev
+     name: foo-display
 END
 ```
 
-This `Trigger` will send events to the `-test` `Service`. 
+This `Trigger` will send events to the `bar` `Service`. 
 
 ```shell
-cat << END | kubectl -n $K_NAMESPACE apply -f -
+kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: eventing.knative.dev/v1alpha1
 kind: Trigger
 metadata:
-  name: event-display-test
+  name: bar-display
 spec:
   filter:
     sourceAndType:
-      type: knative.eventing.hello_world
-      source: https://knative.eventing.test
+      source: bar
   subscriber:
     ref:
      apiVersion: v1
      kind: Service
-     name: event-display-test
+     name: bar-display
 END
 ```
 
 
-**Note** that the filters are different. Both only allow events with type 
-`knative.eventing.hello_world`, but the `-dev` `Trigger` requires the source to be
-`https://knative.eventing.dev`, while the `-test` `Trigger` requires the source to
-be `https://knative.eventing.test`.
+**Note** that the filters are different. One only checks the Cloud Event's `type`, the other only checks the Cloud Event's `source`.
 
 ### Verification
 
@@ -319,8 +314,8 @@ We expect to see something like:
 
 ```shell
 NAME                 READY   REASON   BROKER    SUBSCRIBER_URI                                                                 AGE
-event-display-dev    True             default   http://event-display-dev.kn-eventing-step-by-step-sample.svc.cluster.local/    16s
-event-display-test   True             default   http://event-display-test.kn-eventing-step-by-step-sample.svc.cluster.local/   9s
+bar-display          True             default   http://bar-display.kn-eventing-step-by-step-sample.svc.cluster.local/   9s
+foo-display          True             default   http://foo-display.kn-eventing-step-by-step-sample.svc.cluster.local/    16s
 ```
 
 The important column is the `READY` column. We want the value to be `True` for all
@@ -337,7 +332,7 @@ events by creating `Trigger`s.
 
 We will create a CloudEvent by sending an HTTP request directly to the
 `Broker`. There are libraries that make this easy, such as 
-[CloudEvents Go SDK](todo), but for simplicity we will craft a curl request
+[CloudEvents Go SDK](https://github.com/cloudevents/sdk-go), but for simplicity we will craft a curl request
 manually.
 
 First, let's verify the hostname of the `Broker`. 
@@ -348,7 +343,7 @@ kubectl -n $K_NAMESPACE get broker default -o jsonpath='{.status.address.hostnam
 
 This should be `default-broker.kn-eventing-step-by-step-sample.svc.cluster.local`.
 The trailing `.cluster.local` may be different based on how your Kubernetes cluster
-is setup. Use the hostname as the host for all the curl commands that follow (note
+is setup. Use the hostname as the host for all the curl commands that follow (**note**
 that if your hostname is different, then you will need to replace it in the curl
 commands).
 
@@ -358,7 +353,7 @@ a `Pod`, SSH into that `Pod`, and run the curl request from there.
 Create the `Pod`:
 
 ```shell
-cat << END | kubectl -n $K_NAMESPACE apply -f -
+kubectl -n $K_NAMESPACE apply -f - << END
 apiVersion: v1
 kind: Pod
 metadata:
@@ -387,29 +382,30 @@ Once the `Pod` is running, SSH into the `Pod`:
 kubectl -n $K_NAMESPACE attach curl -it
 ```
 
-From within that SSH terminal, we will make three curl requests:
-- Request that goes to `-dev`.
-- Request that goes to `-test`.
-- Request that goes to neither.
+From within that SSH terminal, we will make four curl requests:
+- [Request that goes exclusively to `foo`](#request-to-foo).
+- [Request that goes exclusively to `bar`](#request-to-bar).
+- [Request that goes to both `foo` and `bar`](#request-to-both).
+- [Request that goes to neither `foo` nor `bar`](#request-to-neither).
 
-#### Request to `-dev`
+#### Request to `foo`
 
 From within the SSH terminal:
 
 ```shell
  curl -v "default-broker.kn-eventing-step-by-step-sample.svc.cluster.local" \
   -X POST \
-  -H "Ce-Id: should-be-seen-by-dev" \
+  -H "Ce-Id: should-be-seen-by-foo" \
   -H "Ce-Specversion: 0.2" \
-  -H "Ce-Type: knative.eventing.hello_world" \
-  -H "Ce-Source: https://knative.eventing.dev" \
+  -H "Ce-Type: foo" \
+  -H "Ce-Source: anything-but-bar" \
   -H "Content-Type: application/json" \
-  -d '{"msg":"Hello World event from Knative - Dev"}'
+  -d '{"msg":"Hello World event from Knative - Foo"}'
 ```
 
 We should receive a `202 Accepted` response.
 
-#### Request to `-test`
+#### Request to `bar`
 
 From within the SSH terminal:
 
@@ -418,10 +414,27 @@ From within the SSH terminal:
   -X POST \
   -H "Ce-Id: should-be-seen-by-test" \
   -H "Ce-Specversion: 0.2" \
-  -H "Ce-Type: knative.eventing.hello_world" \
-  -H "Ce-Source: https://knative.eventing.test" \
+  -H "Ce-Type: anything-but-foo" \
+  -H "Ce-Source: bar" \
   -H "Content-Type: application/json" \
-  -d '{"msg":"Hello World event from Knative - Test"}'
+  -d '{"msg":"Hello World event from Knative - Bar"}'
+```
+
+We should receive a `202 Accepted` response.
+
+#### Request to both
+
+From within the SSH terminal:
+
+```shell
+ curl -v "default-broker.kn-eventing-step-by-step-sample.svc.cluster.local" \
+  -X POST \
+  -H "Ce-Id: should-be-seen-by-test" \
+  -H "Ce-Specversion: 0.2" \
+  -H "Ce-Type: foo" \
+  -H "Ce-Source: bar" \
+  -H "Content-Type: application/json" \
+  -d '{"msg":"Hello World event from Knative - Both"}'
 ```
 
 We should receive a `202 Accepted` response.
@@ -435,8 +448,8 @@ From within the SSH terminal:
   -X POST \
   -H "Ce-Id: should-be-seen-by-neither" \
   -H "Ce-Specversion: 0.2" \
-  -H "Ce-Type: knative.eventing.hello_world" \
-  -H "Ce-Source: https://knative.eventing.something-else" \
+  -H "Ce-Type: anything-but-foo" \
+  -H "Ce-Source: anything-but-bar" \
   -H "Content-Type: application/json" \
   -d '{"msg":"Hello World event from Knative - Neither"}'
 ```
@@ -452,77 +465,103 @@ First, exit out of any SSH terminals. All the remaining commands will take place
 on the machine that has been running `kubectl`.
 
 We are going to check the logs of each event consumer to verify it saw only the
-event that is expected.
+events that are expected.
 
-### `-dev`
+### `foo` Verification
 
-Use the following command to see the logs for the `-dev` event consumer.
+Use the following command to see the logs for the `foo` event consumer.
 
 ```shell
-kubectl -n $K_NAMESPACE logs -l app=event-display-dev
+kubectl -n $K_NAMESPACE logs -l app=foo-display
 ```
 
 This should output something like:
 
 ```shell
-☁️   cloudevents.Event
+☁️  cloudevents.Event
 Validation: valid
 Context Attributes,
   specversion: 0.2
-  type: knative.eventing.hello_world
-  source: https://knative.eventing.dev
-  id: should-be-seen-by-dev
-  time: 2019-05-17T18:50:14.003025764Z
+  type: foo
+  source: anything-but-bar
+  id: should-be-seen-by-foo
+  time: 2019-05-20T17:59:43.81718488Z
   contenttype: application/json
 Extensions,
-  knativehistory: default-broker-krv99-channel-j9fcg.kn-eventing-step-by-step-sample.svc.cluster.local
+  knativehistory: default-broker-srk54-channel-24gls.kn-eventing-step-by-step-sample.svc.cluster.local
 Data,
   {
-    "msg": "Hello World event from Knative - Dev"
+    "msg": "Hello World event from Knative - Foo"
+  }
+☁️  cloudevents.Event
+Validation: valid
+Context Attributes,
+  specversion: 0.2
+  type: foo
+  source: bar
+  id: should-be-seen-by-test
+  time: 2019-05-20T17:59:54.211866425Z
+  contenttype: application/json
+Extensions,
+  knativehistory: default-broker-srk54-channel-24gls.kn-eventing-step-by-step-sample.svc.cluster.local
+Data,
+  {
+    "msg": "Hello World event from Knative - Both"
   }
 ```
 
-**Note**: There should be exactly one event seen in the output, because of the
-three events we sent, only one matched the `-dev` filter, so we expect only that
-one to be seen. The single event seen should have a source of 
-`https://knative.eventing.dev`.
+**Note**: There should be exactly two events seen in the output, because of the
+four events we sent, only two matched the `foo` filter, so we expect only those to be seen.
 
 If the output does not look as expected, then something has gone wrong. Look at 
 our [Broker Debugging Guide](todo) to help debug the issue.
 
 
-### `-test`
+### `bar` Verification
 
-Use the following command to see the logs for the `-test` event consumer.
+Use the following command to see the logs for the `bar` event consumer.
 
 ```shell
-kubectl -n $K_NAMESPACE logs -l app=event-display-test
+kubectl -n $K_NAMESPACE logs -l app=bar-display
 ```
 
 This should output something like:
 
 ```shell
-☁️   cloudevents.Event
-Validation: valid
-Context Attributes,
-  specversion: 0.2
-  type: knative.eventing.hello_world
-  source: https://knative.eventing.test
-  id: should-be-seen-by-test
-  time: 2019-05-17T18:50:50.447806265Z
-  contenttype: application/json
-Extensions,
-  knativehistory: default-broker-krv99-channel-j9fcg.kn-eventing-step-by-step-sample.svc.cluster.local
-Data,
-  {
-    "msg": "Hello World event from Knative - Test"
-  }
+☁️  cloudevents.Event
+ Validation: valid
+ Context Attributes,
+   specversion: 0.2
+   type: anything-but-foo
+   source: bar
+   id: should-be-seen-by-test
+   time: 2019-05-20T17:59:49.044926148Z
+   contenttype: application/json
+ Extensions,
+   knativehistory: default-broker-srk54-channel-24gls.kn-eventing-step-by-step-sample.svc.cluster.local
+ Data,
+   {
+     "msg": "Hello World event from Knative - Bar"
+   }
+ ☁️  cloudevents.Event
+ Validation: valid
+ Context Attributes,
+   specversion: 0.2
+   type: foo
+   source: bar
+   id: should-be-seen-by-test
+   time: 2019-05-20T17:59:54.211866425Z
+   contenttype: application/json
+ Extensions,
+   knativehistory: default-broker-srk54-channel-24gls.kn-eventing-step-by-step-sample.svc.cluster.local
+ Data,
+   {
+     "msg": "Hello World event from Knative - Both"
+   } 
 ```
 
-**Note**: There should be exactly one event seen in the output, because of the
-three events we sent, only one matched the `-dev` filter, so we expect only that
-one to be seen. The single event seen should have a source of 
-`https://knative.eventing.test`.
+**Note**: There should be exactly two events seen in the output, because of the
+four events we sent, only two matched the `foo` filter, so we expect only those to be seen.
 
 If the output does not look as expected, then something has gone wrong. Look at 
 our [Broker Debugging Guide](todo) to help debug the issue.
