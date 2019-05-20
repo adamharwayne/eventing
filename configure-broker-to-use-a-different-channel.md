@@ -1,7 +1,7 @@
 # Configure `Broker` to use a different `Channel`
 
-`Broker`'s compose multiple infrastructure pieces to provide a useful abstraction.
-The most important infrastructure piece they use is `Channel`s. The specific 
+`Broker` composes multiple infrastructure pieces to provide a useful abstraction.
+The most important infrastructure piece they use is `Channel`. The specific 
 `Channel` implementation used will dictate many properties of the `Broker`, including:
 - Event durability.
 - Event delivery retries.
@@ -55,7 +55,7 @@ If the result is the empty string, then `spec.channelTemplate` is empty and the
 ### Default Channel
 
 When a `Channel` is created with an empty `spec`, it is filled in by a defaulting
-webhook. See [Default Channel](default-channel-docs) for a more thorough
+webhook. See [Default Channel](todo) for a more thorough
 description of how this works.
 
 Read the default Channel configuration:
@@ -85,15 +85,15 @@ metadata:
   namespace: knative-eventing
 ```
 
-We are interestedc in the `data` section, which contains a YAML string. There are
+We are interested in the `data` section, which contains a YAML string. There are
 two sections:
 - `clusterdefault`
 - `namespacedefaults`
 
 If the `namespacedefaults` section contains the namespace the `Broker` is in (i.e.
-$BROKER_NS), then it will be used. If not, then the `clusterdcefault` will be used.
+`$BROKER_NS`), then it will be used. If not, then the `clusterdcefault` will be used.
 
-In our example, $BROKER_NS is not in the `namespacedefaults` section, so we would
+In our example, `$BROKER_NS` is not in the `namespacedefaults` section, so we would
 expect the `Broker` to use the `clusterdefault`, namely `in-memory`. 
 
 ### Recap
@@ -103,13 +103,13 @@ will use.
 
 In order of precendence.
 1. The `Broker`'s `spec.channelTemplate`.
-1. The Default Channel for $BROKER_NS.
-    1. The specified default for $BROKER_NS.
+1. The Default Channel for `$BROKER_NS`.
+    1. The specified default for `$BROKER_NS`.
     1. The cluster wide default.
 
 ## Which `Channel` is my `Broker` _actually_ using?
 
-why is there a potential difference between theory and reality? 
+Why is there a potential difference between theory and reality? 
 
 There is a difference between the two because changing the `Channel` provisioner
 being used will mean that any in-flight events will be lost. So, the Knative
@@ -121,7 +121,7 @@ instructions in [Changing the Channel](#changing-the-channel).
 
 Each `Broker` creates two `Channel`s. They have the label 
 `eventing.knative.dev/broker`
-with the value $BROKER_NAME (e.g. `eventing.knative.dev/broker: default`).
+with the value `$BROKER_NAME` (e.g. `eventing.knative.dev/broker: default`).
 
 We will use the following command to get the provisioner they are using:
 
@@ -224,10 +224,10 @@ kubectl label namespace $BROKER_NS --overwrite 'eventing.knative.dev/injection=e
 
 Forcing the `Channel`s of an exsiting `Broker` to change is **dangerous** it will
 drop all events that are currently inflight, along with new events until the control
-and data plane are healthy again.
+and data planes are healthy again.
 
 If you want to do this, then the procedure is to first update the `Channel` that
-the `Broker` will [theorectically use](#which-channel-is-my-broker-_theoretically_-using).
+the `Broker` will [theoretically use](#which-channel-is-my-broker-_theoretically_-using).
 Most likely via setting its `spec.channelTemplate`.
 
 ```shell
@@ -283,4 +283,4 @@ gcp-pubsub gcp-pubsub
 ## Further Reading
 
 - [Eventing Concepts](todo) - Descriptions of all the Knative Eventing pieces and
-  how the interact.
+  how they interact.
