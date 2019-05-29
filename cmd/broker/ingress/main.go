@@ -94,9 +94,10 @@ func main() {
 	}
 
 	kc := kubernetes.NewForConfigOrDie(mgr.GetConfig())
-	configMapWatcher := configmap.NewInformedWatcher(kc, utils.GetRequiredEnvOrFatal(NAMESPACE))
+	ns := utils.GetRequiredEnvOrFatal(NAMESPACE)
+	configMapWatcher := configmap.NewInformedWatcher(kc, ns)
 
-	if err = tracing.SetupDynamicZipkinPublishing(logger.Sugar(), configMapWatcher, utils.GetRequiredEnvOrFatal("ZIPKIN_SERVICE_NAME")); err != nil {
+	if err = tracing.SetupDynamicZipkinPublishing(logger.Sugar(), ns, configMapWatcher, utils.GetRequiredEnvOrFatal("ZIPKIN_SERVICE_NAME")); err != nil {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 
