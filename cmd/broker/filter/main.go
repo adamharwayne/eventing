@@ -18,14 +18,15 @@ package main
 
 import (
 	"flag"
+	"log"
 
 	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
 	"github.com/knative/eventing/pkg/broker"
 	"github.com/knative/eventing/pkg/logconfig"
-	"github.com/knative/eventing/pkg/logging"
 	"github.com/knative/eventing/pkg/tracing"
 	"github.com/knative/eventing/pkg/utils"
 	"github.com/knative/pkg/configmap"
+	"github.com/knative/pkg/logging"
 	"github.com/knative/pkg/signals"
 	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
@@ -40,12 +41,16 @@ const (
 )
 
 func main() {
-	loggingConfig := logging.NewConfig()
+	flag.Parse()
+
+	// Setup our logger. Use the default configuration.
+	loggingConfig, err := logging.NewConfigFromMap(map[string]string{})
+	if err != nil {
+		log.Fatal("Error loading an empty logging config")
+	}
 	sugaredLogger, logLevel := logging.NewLoggerFromConfig(loggingConfig, logconfig.BrokerFilter)
 	logger := sugaredLogger.Desugar()
 	defer logger.Sync()
-
-	flag.Parse()
 
 	logger.Info("Starting...")
 
@@ -68,7 +73,12 @@ func main() {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
 
-	configMapWatcher.WatchWithDefault(logconfig.DefaultLoggingConfig(), logging.UpdateLevelFromConfigMap(logger.Sugar(), logLevel, logconfig.BrokerFilter))
+	// Dynamically configure the logging level.
+	defaultLoggingCM, err := logconfig.DefaultLoggingConfig()
+	if err != nil {
+		logger.Fatal("Unable to get the default logging config", zap.Error(err))
+	}
+	configMapWatcher.WatchWithDefault(defaultLoggingCM, logging.UpdateLevelFromConfigMap(logger.Sugar(), logLevel, logconfig.BrokerFilter))
 
 	// We are running both the receiver (takes messages in from the Broker) and the dispatcher (send
 	// the messages to the triggers' subscribers) in this binary.
