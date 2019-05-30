@@ -19,17 +19,16 @@ package main
 import (
 	"flag"
 
+	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
+	"github.com/knative/eventing/pkg/broker"
+	"github.com/knative/eventing/pkg/logconfig"
+	"github.com/knative/eventing/pkg/logging"
 	"github.com/knative/eventing/pkg/tracing"
 	"github.com/knative/eventing/pkg/utils"
 	"github.com/knative/pkg/configmap"
-	"k8s.io/client-go/kubernetes"
-
-	eventingv1alpha1 "github.com/knative/eventing/pkg/apis/eventing/v1alpha1"
-	"github.com/knative/eventing/pkg/broker"
-	"github.com/knative/eventing/pkg/provisioners"
 	"github.com/knative/pkg/signals"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -41,9 +40,9 @@ const (
 )
 
 func main() {
-	logConfig := provisioners.NewLoggingConfig()
-	logConfig.LoggingLevel["provisioner"] = zapcore.DebugLevel
-	logger := provisioners.NewProvisionerLoggerFromConfig(logConfig).Desugar()
+	loggingConfig := logging.NewConfig()
+	sugaredLogger, logLevel := logging.NewLoggerFromConfig(loggingConfig, logconfig.BrokerFilter)
+	logger := sugaredLogger.Desugar()
 	defer logger.Sync()
 
 	flag.Parse()
@@ -68,6 +67,8 @@ func main() {
 	if err = tracing.SetupDynamicZipkinPublishing(logger.Sugar(), ns, configMapWatcher, utils.GetRequiredEnvOrFatal("ZIPKIN_SERVICE_NAME")); err != nil {
 		logger.Fatal("Error setting up Zipkin publishing", zap.Error(err))
 	}
+
+	configMapWatcher.WatchWithDefault(logconfig.DefaultLoggingConfig(), logging.UpdateLevelFromConfigMap(logger.Sugar(), logLevel, logconfig.BrokerFilter))
 
 	// We are running both the receiver (takes messages in from the Broker) and the dispatcher (send
 	// the messages to the triggers' subscribers) in this binary.

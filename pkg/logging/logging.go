@@ -22,6 +22,7 @@ import (
 
 	"github.com/knative/pkg/logging"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -71,4 +72,32 @@ func NewConfigFromConfigMap(configMap *corev1.ConfigMap) (*logging.Config, error
 // when a config map is updated
 func UpdateLevelFromConfigMap(logger *zap.SugaredLogger, atomicLevel zap.AtomicLevel, levelKey string) func(configMap *corev1.ConfigMap) {
 	return logging.UpdateLevelFromConfigMap(logger, atomicLevel, levelKey, components...)
+}
+
+// NewConfig creates a new generic logging config, with no logging levels set.
+func NewConfig() *logging.Config {
+	lc := &logging.Config{
+		LoggingLevel: map[string]zapcore.Level{},
+		LoggingConfig: `{
+			"level": "info",
+			"development": false,
+			"outputPaths": ["stdout"],
+			"errorOutputPaths": ["stderr"],
+			"encoding": "json",
+			"encoderConfig": {
+				"timeKey": "ts",
+				"levelKey": "level",
+				"nameKey": "logger",
+				"callerKey": "caller",
+				"messageKey": "msg",
+				"stacktraceKey": "stacktrace",
+				"lineEnding": "",
+				"levelEncoder": "",
+				"timeEncoder": "iso8601",
+				"durationEncoder": "",
+				"callerEncoder": ""
+			}
+		}`,
+	}
+	return lc
 }

@@ -19,6 +19,10 @@ package logconfig
 import (
 	"fmt"
 	"os"
+
+	"github.com/knative/eventing/pkg/logging"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -36,7 +40,10 @@ const (
 	// SourcesController is the name of the override key used inside of the logging config for Sources Controller.
 	SourcesController = "sources-controller"
 
-	// Webhook is the name of the override key used inside of the logging config for Webhook Controller.
+	BrokerFilter = "broker-filter"
+
+	// WebhookNameEnv is the name of the override key used inside of the logging config for Webhook
+	// Controller.
 	WebhookNameEnv = "WEBHOOK_NAME"
 )
 
@@ -70,4 +77,15 @@ API to initialize this variable via:
   - name: WEBHOOK_NAME
     value: webhook
 `, WebhookNameEnv))
+}
+
+func DefaultLoggingConfig() v1.ConfigMap {
+	return v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ConfigMapName(),
+		},
+		Data: map[string]string{
+			"zap-logging-config": logging.NewConfig().LoggingConfig,
+		},
+	}
 }
