@@ -5,14 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"knative.dev/pkg/kmeta"
-
-	"k8s.io/apimachinery/pkg/labels"
-
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -88,40 +83,6 @@ func ExternalService(c *eventingv1alpha1.Channel) K8sServiceOption {
 		}
 		return nil
 	}
-}
-
-func CreateK8sService(ctx context.Context, client runtimeClient.Client, c *eventingv1alpha1.Channel, opts ...K8sServiceOption) (*corev1.Service, error) {
-	getSvc := func() (*corev1.Service, error) {
-		return getK8sService(ctx, client, c)
-	}
-	svc, err := newK8sService(c, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return createK8sService(ctx, client, getSvc, svc)
-}
-
-func getK8sService(ctx context.Context, client runtimeClient.Client, c *eventingv1alpha1.Channel) (*corev1.Service, error) {
-	list := &corev1.ServiceList{}
-	opts := &runtimeClient.ListOptions{
-		Namespace:     c.Namespace,
-		LabelSelector: labels.SelectorFromSet(k8sServiceLabels(c)),
-		// Set Raw because if we need to get more than one page, then we will put the continue token
-		// into opts.Raw.Continue.
-		Raw: &metav1.ListOptions{},
-	}
-
-	err := client.List(ctx, opts, list)
-	if err != nil {
-		return nil, err
-	}
-	for _, svc := range list.Items {
-		if metav1.IsControlledBy(&svc, c) {
-			return &svc, nil
-		}
-	}
-
-	return nil, k8serrors.NewNotFound(schema.GroupResource{}, "")
 }
 
 type getService func() (*corev1.Service, error)
@@ -223,38 +184,6 @@ func UpdateChannel(ctx context.Context, client runtimeClient.Client, u *eventing
 	}
 
 	return nil
-}
-
-// newK8sService creates a new Service for a Channel resource. It also sets the appropriate
-// OwnerReferences on the resource so handleObject can discover the Channel resource that 'owns' it.
-// As well as being garbage collected when the Channel is deleted.
-func newK8sService(c *eventingv1alpha1.Channel, opts ...K8sServiceOption) (*corev1.Service, error) {
-	// Add annotations
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      utils.GenerateFixedName(c, channelServiceName(c.Name)),
-			Namespace: c.Namespace,
-			Labels:    k8sServiceLabels(c),
-			OwnerReferences: []metav1.OwnerReference{
-				*kmeta.NewControllerRef(c),
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:     PortName,
-					Protocol: corev1.ProtocolTCP,
-					Port:     PortNumber,
-				},
-			},
-		},
-	}
-	for _, opt := range opts {
-		if err := opt(svc); err != nil {
-			return nil, err
-		}
-	}
-	return svc, nil
 }
 
 // k8sOldServiceLabels returns a map with only old eventing channel and provisioner labels
