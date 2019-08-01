@@ -7,12 +7,9 @@ import (
 
 	"knative.dev/pkg/kmeta"
 
-	"k8s.io/apimachinery/pkg/labels"
-
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/sets"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -91,37 +88,26 @@ func ExternalService(c *eventingv1alpha1.Channel) K8sServiceOption {
 }
 
 func CreateK8sService(ctx context.Context, client runtimeClient.Client, c *eventingv1alpha1.Channel, opts ...K8sServiceOption) (*corev1.Service, error) {
-	getSvc := func() (*corev1.Service, error) {
-		return getK8sService(ctx, client, c)
-	}
 	svc, err := newK8sService(c, opts...)
 	if err != nil {
 		return nil, err
 	}
+	getSvc := func() (*corev1.Service, error) {
+		return getK8sService(ctx, client, c, svc.Name)
+	}
 	return createK8sService(ctx, client, getSvc, svc)
 }
 
-func getK8sService(ctx context.Context, client runtimeClient.Client, c *eventingv1alpha1.Channel) (*corev1.Service, error) {
-	list := &corev1.ServiceList{}
-	opts := &runtimeClient.ListOptions{
-		Namespace:     c.Namespace,
-		LabelSelector: labels.SelectorFromSet(k8sServiceLabels(c)),
-		// Set Raw because if we need to get more than one page, then we will put the continue token
-		// into opts.Raw.Continue.
-		Raw: &metav1.ListOptions{},
+func getK8sService(ctx context.Context, client runtimeClient.Client, c *eventingv1alpha1.Channel, svcName string) (*corev1.Service, error) {
+	objectKey := runtimeClient.ObjectKey{Namespace: c.Namespace, Name: svcName}
+	svc := corev1.Service{}
+	if err := client.Get(ctx, objectKey, &svc); err != nil {
+		return nil, fmt.Errorf("getting service %q: %v", svcName, err)
 	}
-
-	err := client.List(ctx, opts, list)
-	if err != nil {
-		return nil, err
+	if !metav1.IsControlledBy(&svc, c) {
+		return nil, fmt.Errorf("service %q is not owned by this channel", svc.Name)
 	}
-	for _, svc := range list.Items {
-		if metav1.IsControlledBy(&svc, c) {
-			return &svc, nil
-		}
-	}
-
-	return nil, k8serrors.NewNotFound(schema.GroupResource{}, "")
+	return &svc, nil
 }
 
 type getService func() (*corev1.Service, error)
