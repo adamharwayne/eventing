@@ -121,7 +121,7 @@
     spec:
       filter:
         sourceAndType:
-          type: com.example.someevent
+          type: dev.knative.test.event
       subscriber:
         ref:
          apiVersion: v1
@@ -138,7 +138,7 @@
     apiVersion: v1
     kind: Pod
     metadata:
-      generateName: sendevents
+      name: sendevents
     spec:
       containers:
        - name: sendevents
