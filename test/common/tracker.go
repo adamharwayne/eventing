@@ -43,6 +43,10 @@ type Tracker struct {
 	resourcesToClean       []ResourceDeleter
 	logf                   logging.FormatLogger
 	dynamicClient          dynamic.Interface
+
+	// FewerDeleteLogs should always be set to false in Prow. It can be set to true when doing local
+	// debugging. When set to true, only
+	FewerDeleteLogs bool
 }
 
 // ResourceDeleter holds the resource interface and name of resource to be cleaned
@@ -118,14 +122,16 @@ func (t *Tracker) Clean(awaitDeletion bool) error {
 		r, err := deleter.Resource.Get(deleter.Name, metav1.GetOptions{})
 		if err != nil {
 			t.logf("Failed to get to-be cleaned resource %q : %v", deleter.Name, err)
-		} else {
+		} else if t.FewerDeleteLogs {
 			bytes, _ := json.MarshalIndent(r, "", "  ")
 			t.logf("Cleaning resource: %q\n%+v", deleter.Name, string(bytes))
 		}
 		if err := deleter.Resource.Delete(deleter.Name, nil); err != nil {
 			t.logf("Failed to clean the resource %q : %v", deleter.Name, err)
 		} else if awaitDeletion {
-			t.logf("Waiting for %s to be deleted", deleter.Name)
+			if t.FewerDeleteLogs {
+				t.logf("Waiting for %s to be deleted", deleter.Name)
+			}
 			if err := wait.PollImmediate(interval, timeout, func() (bool, error) {
 				if _, err := deleter.Resource.Get(deleter.Name, metav1.GetOptions{}); err != nil {
 					return true, nil
