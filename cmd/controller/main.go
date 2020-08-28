@@ -20,7 +20,15 @@ import (
 	// Uncomment the following line to load the gcp plugin (only required to authenticate against GKE clusters).
 	// _ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 
+	"context"
+	"fmt"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/pkg/injection"
 	"knative.dev/pkg/injection/sharedmain"
+	"knative.dev/pkg/signals"
 
 	"knative.dev/eventing/pkg/reconciler/apiserversource"
 	"knative.dev/eventing/pkg/reconciler/channel"
@@ -34,7 +42,9 @@ import (
 )
 
 func main() {
-	sharedmain.Main("controller",
+	ctx := signals.NewContext()
+	ctx = injection.WithStartupHook(ctx, requiredCRDsOrDie)
+	sharedmain.MainWithContext(ctx, "controller",
 		// Messaging
 		channel.NewController,
 		subscription.NewController,
@@ -53,4 +63,19 @@ func main() {
 		// Sources CRD
 		sourcecrd.NewController,
 	)
+}
+
+func requiredCRDsOrDie(ctx context.Context) error {
+	cfg := injection.GetConfig(ctx)
+	client := apiextensionsv1.NewForConfigOrDie(cfg)
+
+	gvrs := injection.Default.GetInformerGVRs()
+	for _, gvr := range gvrs {
+		gvrString := fmt.Sprintf("%s.%s", gvr.Resource, gvr.Group)
+		_, err := client.CustomResourceDefinitions().Get(gvrString, metav1.GetOptions{})
+		if k8serrors.IsNotFound(err) {
+			return fmt.Errorf("unable to get %q: %w", gvrString, err)
+		}
+	}
+	return nil
 }
