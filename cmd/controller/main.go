@@ -71,6 +71,9 @@ func requiredCRDsOrDie(ctx context.Context) error {
 
 	gvrs := injection.Default.GetInformerGVRs()
 	for _, gvr := range gvrs {
+		if isBuiltIntoK8s(gvr) {
+			continue
+		}
 		gvrString := fmt.Sprintf("%s.%s", gvr.Resource, gvr.Group)
 		_, err := client.CustomResourceDefinitions().Get(gvrString, metav1.GetOptions{})
 		if k8serrors.IsNotFound(err) {
@@ -78,4 +81,20 @@ func requiredCRDsOrDie(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func isBuiltIntoK8s(gvr metav1.GroupVersionResource) bool {
+	builtIntoK8s := map[string]struct{}{
+		"":                          {},
+		"apps":                      {},
+		"autoscaling":               {},
+		"batch":                     {},
+		"core":                      {},
+		"extensions":                {},
+		"policy":                    {},
+		"rbac.authorization.k8s.io": {},
+		"apiextensions.k8s.io":      {},
+	}
+	_, present := builtIntoK8s[gvr.Group]
+	return present
 }
