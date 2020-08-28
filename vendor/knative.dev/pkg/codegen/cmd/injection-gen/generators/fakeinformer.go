@@ -71,6 +71,7 @@ func (g *fakeInformerGenerator) Namers(c *generator.Context) namer.NameSystems {
 
 func (g *fakeInformerGenerator) Imports(c *generator.Context) (imports []string) {
 	imports = append(imports, g.imports.ImportLines()...)
+	imports = append(imports, "metav1 \"k8s.io/apimachinery/pkg/apis/meta/v1\"")
 	return
 }
 
@@ -84,6 +85,8 @@ func (g *fakeInformerGenerator) GenerateType(c *generator.Context, t *types.Type
 		"informerGet":        c.Universe.Function(types.Name{Package: g.informerInjectionPkg, Name: "Get"}),
 		"factoryGet":         c.Universe.Function(types.Name{Package: g.fakeFactoryInjectionPkg, Name: "Get"}),
 		"group":              namer.IC(g.groupGoName),
+		"crdGroup":           g.groupVersion.Group,
+		"crdVersion":         g.groupVersion.Version,
 		"type":               t,
 		"version":            namer.IC(g.groupVersion.Version.String()),
 		"controllerInformer": c.Universe.Type(types.Name{Package: "knative.dev/pkg/controller", Name: "Informer"}),
@@ -106,7 +109,13 @@ var injectionFakeInformer = `
 var Get = {{.informerGet|raw}}
 
 func init() {
-	{{.injectionRegisterInformer|raw}}(withInformer)
+	{{.injectionRegisterInformer|raw}}(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group: "{{.crdGroup}}",
+			Version: "{{.crdVersion}}",
+			Resource: "{{.type|allLowercasePlural}}",
+	})
 }
 
 func withInformer(ctx {{.contextContext|raw}}) ({{.contextContext|raw}}, {{.controllerInformer|raw}}) {

@@ -21,6 +21,7 @@ package fake
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	customresourcedefinition "knative.dev/pkg/client/injection/apiextensions/informers/apiextensions/v1/customresourcedefinition"
 	fake "knative.dev/pkg/client/injection/apiextensions/informers/factory/fake"
 	controller "knative.dev/pkg/controller"
@@ -30,7 +31,13 @@ import (
 var Get = customresourcedefinition.Get
 
 func init() {
-	injection.Fake.RegisterInformer(withInformer)
+	injection.Fake.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "apiextensions.k8s.io",
+			Version:  "v1",
+			Resource: "customresourcedefinitions",
+		})
 }
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {

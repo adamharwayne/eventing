@@ -21,6 +21,7 @@ package mutatingwebhookconfiguration
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/informers/admissionregistration/v1"
 	factory "knative.dev/pkg/client/injection/kube/informers/factory"
 	controller "knative.dev/pkg/controller"
@@ -29,7 +30,13 @@ import (
 )
 
 func init() {
-	injection.Default.RegisterInformer(withInformer)
+	injection.Default.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "admissionregistration.k8s.io",
+			Version:  "v1",
+			Resource: "mutatingwebhookconfigurations",
+		})
 }
 
 // Key is used for associating the Informer inside the context.Context.

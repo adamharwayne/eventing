@@ -21,6 +21,7 @@ package fake
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	configmap "knative.dev/pkg/client/injection/kube/informers/core/v1/configmap"
 	fake "knative.dev/pkg/client/injection/kube/informers/factory/fake"
 	controller "knative.dev/pkg/controller"
@@ -30,7 +31,13 @@ import (
 var Get = configmap.Get
 
 func init() {
-	injection.Fake.RegisterInformer(withInformer)
+	injection.Fake.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "core",
+			Version:  "v1",
+			Resource: "configmaps",
+		})
 }
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {

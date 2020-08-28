@@ -19,6 +19,7 @@ package injection
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 
 	"knative.dev/pkg/controller"
@@ -28,11 +29,12 @@ import (
 // informer type to a context.
 type InformerInjector func(context.Context) (context.Context, controller.Informer)
 
-func (i *impl) RegisterInformer(ii InformerInjector) {
+func (i *impl) RegisterInformer(ii InformerInjector, gvr metav1.GroupVersionResource) {
 	i.m.Lock()
 	defer i.m.Unlock()
 
 	i.informers = append(i.informers, ii)
+	i.informerGVRs = append(i.informerGVRs, gvr)
 }
 
 func (i *impl) GetInformers() []InformerInjector {
@@ -41,6 +43,14 @@ func (i *impl) GetInformers() []InformerInjector {
 
 	// Copy the slice before returning.
 	return append(i.informers[:0:0], i.informers...)
+}
+
+func (i *impl) GetInformerGVRs() []metav1.GroupVersionResource {
+	i.m.RLock()
+	defer i.m.RUnlock()
+
+	// Copy the slice before returning.
+	return append(i.informerGVRs[:0:0], i.informerGVRs...)
 }
 
 func (i *impl) SetupInformers(ctx context.Context, cfg *rest.Config) (context.Context, []controller.Informer) {

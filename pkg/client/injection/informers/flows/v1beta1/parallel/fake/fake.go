@@ -21,6 +21,7 @@ package fake
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake "knative.dev/eventing/pkg/client/injection/informers/factory/fake"
 	parallel "knative.dev/eventing/pkg/client/injection/informers/flows/v1beta1/parallel"
 	controller "knative.dev/pkg/controller"
@@ -30,7 +31,13 @@ import (
 var Get = parallel.Get
 
 func init() {
-	injection.Fake.RegisterInformer(withInformer)
+	injection.Fake.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "flows.knative.dev",
+			Version:  "v1beta1",
+			Resource: "parallels",
+		})
 }
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {

@@ -22,6 +22,7 @@ import (
 	context "context"
 
 	v1 "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	factory "knative.dev/pkg/client/injection/apiextensions/informers/factory"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -29,7 +30,13 @@ import (
 )
 
 func init() {
-	injection.Default.RegisterInformer(withInformer)
+	injection.Default.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "apiextensions.k8s.io",
+			Version:  "v1",
+			Resource: "customresourcedefinitions",
+		})
 }
 
 // Key is used for associating the Informer inside the context.Context.

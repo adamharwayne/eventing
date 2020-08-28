@@ -19,6 +19,7 @@ package secret
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/informers/core/v1"
 	controller "knative.dev/pkg/controller"
 	injection "knative.dev/pkg/injection"
@@ -27,7 +28,13 @@ import (
 )
 
 func init() {
-	injection.Default.RegisterInformer(withInformer)
+	injection.Default.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "",
+			Version:  "v1",
+			Resource: "secrets",
+		})
 }
 
 // Key is used for associating the Informer inside the context.Context.

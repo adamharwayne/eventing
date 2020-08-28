@@ -222,8 +222,14 @@ func MainWithConfig(ctx context.Context, component string, cfg *rest.Config, cto
 	eg, egCtx := errgroup.WithContext(ctx)
 	eg.Go(profilingServer.ListenAndServe)
 
+	for _, hook := range injection.GetStartupHooks(ctx) {
+		if err := hook(ctx); err != nil {
+			logger.Fatalw("Startup Hook error", zap.Error(err))
+		}
+	}
+
 	// Many of the webhooks rely on configuration, e.g. configurable defaults, feature flags.
-	// So make sure that we have synchonized our configuration state before launching the
+	// So make sure that we have synchronized our configuration state before launching the
 	// webhooks, so that things are properly initialized.
 	logger.Info("Starting configuration manager...")
 	if err := cmw.Start(ctx.Done()); err != nil {

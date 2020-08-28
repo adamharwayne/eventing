@@ -21,6 +21,7 @@ package configmappropagation
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1alpha1 "knative.dev/eventing/pkg/client/informers/externalversions/configs/v1alpha1"
 	factory "knative.dev/eventing/pkg/client/injection/informers/factory"
 	controller "knative.dev/pkg/controller"
@@ -29,7 +30,13 @@ import (
 )
 
 func init() {
-	injection.Default.RegisterInformer(withInformer)
+	injection.Default.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "configs.internal.knative.dev",
+			Version:  "v1alpha1",
+			Resource: "configmappropagations",
+		})
 }
 
 // Key is used for associating the Informer inside the context.Context.

@@ -3,7 +3,9 @@ module knative.dev/eventing
 go 1.14
 
 require (
+	github.com/bmizerany/perks v0.0.0-20141205001514-d9a9656a3a4b // indirect
 	github.com/cloudevents/sdk-go/v2 v2.2.0
+	github.com/dgryski/go-gk v0.0.0-20200319235926-a69029f61654 // indirect
 	github.com/ghodss/yaml v1.0.0
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.5.1
@@ -22,6 +24,7 @@ require (
 	github.com/rickb777/date v1.13.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/fastuuid v1.2.0
+	github.com/streadway/quantile v0.0.0-20150917103942-b0c588724d25 // indirect
 	github.com/stretchr/testify v1.5.1
 	github.com/tsenart/vegeta v12.7.1-0.20190725001342-b5f4fca92137+incompatible
 	github.com/wavesoftware/go-ensure v1.0.0
@@ -39,7 +42,7 @@ require (
 	k8s.io/apiserver v0.17.6
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	k8s.io/utils v0.0.0-20200603063816-c1c6865ac451
-	knative.dev/pkg v0.0.0-20200826013506-2465d13e7242
+	knative.dev/pkg v0.0.0-20200827231407-8d478d55c0e6
 	knative.dev/test-infra v0.0.0-20200825232706-38c3cb5eb5a2
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -52,3 +55,5 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.17.6
 	k8s.io/code-generator => k8s.io/code-generator v0.17.6
 )
+
+replace knative.dev/pkg => /Users/harwayne/go/src/knative.dev/pkg

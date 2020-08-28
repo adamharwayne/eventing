@@ -21,6 +21,7 @@ package fake
 import (
 	context "context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fake "knative.dev/eventing/pkg/client/injection/informers/factory/fake"
 	sinkbinding "knative.dev/eventing/pkg/client/injection/informers/sources/v1alpha2/sinkbinding"
 	controller "knative.dev/pkg/controller"
@@ -30,7 +31,13 @@ import (
 var Get = sinkbinding.Get
 
 func init() {
-	injection.Fake.RegisterInformer(withInformer)
+	injection.Fake.RegisterInformer(
+		withInformer,
+		metav1.GroupVersionResource{
+			Group:    "sources.knative.dev",
+			Version:  "v1alpha2",
+			Resource: "sinkbindings",
+		})
 }
 
 func withInformer(ctx context.Context) (context.Context, controller.Informer) {
