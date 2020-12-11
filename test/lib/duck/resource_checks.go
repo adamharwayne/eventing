@@ -20,6 +20,7 @@ limitations under the License.
 package duck
 
 import (
+	"fmt"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -30,7 +31,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"knative.dev/eventing/test/lib/resources"
 	"knative.dev/pkg/apis"
-	duckv1beta1 "knative.dev/pkg/apis/duck/v1beta1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
 const (
@@ -42,41 +43,65 @@ const (
 // every interval until isResourceReady returns `true` indicating
 // it is done, returns an error or timeout.
 func WaitForResourceReady(dynamicClient dynamic.Interface, obj *resources.MetaResource) error {
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		return checkResourceReady(dynamicClient, obj)
+	var resource runtime.Object
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		isReady, innerResource, err := checkResourceReady(dynamicClient, obj)
+		if err != nil {
+			return false, err
+		}
+		resource = innerResource
+		return isReady, nil
 	})
+	if err != nil {
+		return fmt.Errorf("%w, unready resource %v", err, resource)
+	}
+	return nil
 }
 
 // WaitForResourcesReady waits until all the specified resources in the given namespace are ready.
 func WaitForResourcesReady(dynamicClient dynamic.Interface, objList *resources.MetaResourceList) error {
-	return wait.PollImmediate(interval, timeout, func() (bool, error) {
-		return checkResourcesReady(dynamicClient, objList)
-
+	var unreadyResources []runtime.Object
+	err := wait.PollImmediate(interval, timeout, func() (bool, error) {
+		innerUnreadyResources, err := checkResourcesReady(dynamicClient, objList)
+		if err != nil {
+			return false, err
+		}
+		unreadyResources = innerUnreadyResources
+		return len(unreadyResources) == 0, nil
 	})
+	if err != nil {
+		return fmt.Errorf("%w, unready resources %v", err, unreadyResources)
+	}
+	return nil
 }
 
 func getGenericResource(tm metav1.TypeMeta) runtime.Object {
 	if tm.APIVersion == "v1" && tm.Kind == "Pod" {
 		return &corev1.Pod{}
 	}
-	return &duckv1beta1.KResource{}
+	return &duckv1.KResource{}
 }
 
-func checkResourceReady(dynamicClient dynamic.Interface, obj *resources.MetaResource) (bool, error) {
+func checkResourceReady(dynamicClient dynamic.Interface, obj *resources.MetaResource) (bool, runtime.Object, error) {
 	gr := getGenericResource(obj.TypeMeta)
 	untyped, err := GetGenericObject(dynamicClient, obj, gr)
-	return isResourceReady(untyped, err)
+	isReady, err := isResourceReady(untyped, err)
+	return isReady, untyped, err
 }
 
-func checkResourcesReady(dynamicClient dynamic.Interface, objList *resources.MetaResourceList) (bool, error) {
+func checkResourcesReady(dynamicClient dynamic.Interface, objList *resources.MetaResourceList) ([]runtime.Object, error) {
 	gr := getGenericResource(objList.TypeMeta)
 	untypeds, err := GetGenericObjectList(dynamicClient, objList, gr)
+	var unreadies []runtime.Object
 	for _, untyped := range untypeds {
-		if isReady, err := isResourceReady(untyped, err); !isReady || err != nil {
-			return isReady, err
+		if isReady, err := isResourceReady(untyped, err); err != nil {
+			return []runtime.Object{}, err
+		} else if !isReady {
+			unreadies = append(unreadies, untyped)
+
 		}
 	}
-	return true, nil
+	return unreadies, nil
 }
 
 // isResourceReady leverage duck-type to check if the given obj is in ready state
@@ -95,7 +120,7 @@ func isResourceReady(obj runtime.Object, err error) (bool, error) {
 		return isPodRunning(pod), nil
 	}
 
-	kr := obj.(*duckv1beta1.KResource)
+	kr := obj.(*duckv1.KResource)
 	ready := kr.Status.GetCondition(apis.ConditionReady)
 	return ready != nil && ready.IsTrue(), nil
 }

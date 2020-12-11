@@ -19,6 +19,8 @@ package duck
 import (
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -163,9 +165,29 @@ func TestCheckResourceReady(t *testing.T) {
 				Kind:       kind,
 			}
 			metaResource := resources.NewMetaResource(om.Name, om.Namespace, &typeMeta)
-			ready, err := checkResourceReady(dc, metaResource)
+			ready, resource, err := checkResourceReady(dc, metaResource)
 			if ready != tc.isReady {
 				t.Errorf("Unexpected readiness. Expected %v, actually %v", tc.isReady, ready)
+			}
+
+			var expectedResource runtime.Object
+			switch tc.obj.(type) {
+			case *corev1.Pod:
+				// Pods are special cased inside GetGenericObject and are returned as themselves.
+				expectedResource = tc.obj
+			case *v1.Broker:
+				b := tc.obj.(*v1.Broker)
+				expectedResource = &duckv1.KResource{
+					ObjectMeta: b.ObjectMeta,
+					TypeMeta:   b.TypeMeta,
+					Status:     b.Status.Status,
+				}
+			default:
+				t.Fatalf("Unknown tc.obj.(type): %t", tc.obj)
+			}
+
+			if diff := cmp.Diff(expectedResource, resource); diff != "" {
+				t.Errorf("Unexpected resource (-want +got) %s", diff)
 			}
 			if tc.expectErr != (err != nil) {
 				t.Errorf("Unexpected error. Expected error = %v, actually %v", tc.expectErr, err)
